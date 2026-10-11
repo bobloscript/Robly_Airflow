@@ -42,6 +42,7 @@ end
 local function finishElement(tab, opts, element, frame, kind)
     element._type = kind
     element._frame = frame
+    element._window = tab and tab.Window
     element._listeners = element._listeners or {}
     local window = tab and tab.Window
     local searchText = opts.Name or opts.Text or opts.Title
@@ -4335,6 +4336,21 @@ local NOTIFY_COLORS = setmetatable({}, {
 local Window = {}
 Window.__index = Window
 
+-- Shared across executions of the script, so a rerun can find the last window.
+function Library._registry()
+    local ok, env = pcall(function()
+        return getgenv and getgenv() or shared
+    end)
+    env = ok and type(env) == "table" and env or shared
+    if type(env) ~= "table" then
+        return nil
+    end
+    if type(env.__AirFlowWindows) ~= "table" then
+        env.__AirFlowWindows = {}
+    end
+    return env.__AirFlowWindows
+end
+
 function Library.Window(_, opts)
     opts = normalize(opts, { Name = "Title", LoadingSubtitle = "Subtitle", ToggleUIKeybind = "Keybind" })
 
@@ -4366,6 +4382,17 @@ function Library.Window(_, opts)
     }, Window)
     local saving = type(opts.ConfigurationSaving) == "table" and opts.ConfigurationSaving or {}
     self.ConfigFolder = saving.FolderName or "AirflowUI"
+    -- Re-executing the script unloads the copy it left behind first, so the
+    -- old toggles stop before the new autoload starts them again.
+    self._registryKey = "AirFlow:" .. tostring(self.ConfigFolder) .. ":" .. tostring(opts.Title or "Airflow")
+    local registry = Library._registry()
+    if registry then
+        local previous = registry[self._registryKey]
+        if type(previous) == "table" and type(previous.Destroy) == "function" then
+            pcall(previous.Destroy, previous)
+        end
+        registry[self._registryKey] = self
+    end
     self.ConfigName = saving.FileName
     self._configListeners = {}
     self._pendingFlags = {}
@@ -6886,8 +6913,12 @@ local function collectFlags(self)
             data[flag] = pending.Entry
         end
     end
+    local ignore = self and self._ignoreFlags or {}
+    for flag in pairs(ignore) do
+        data[flag] = nil
+    end
     for flag, element in pairs(Library.Flags) do
-        if element._type and type(element.Get) == "function" then
+        if not ignore[flag] and element._type and type(element.Get) == "function" then
             local ok, entry = pcall(serializeFlag, element)
             if ok then
                 data[flag] = entry
@@ -6897,18 +6928,53 @@ local function collectFlags(self)
     return data
 end
 
+-- Values first, switches last: a toggle's callback then starts with the
+-- sliders and dropdowns it reads already in place. Override per window with
+-- Window:SetLoadingOrder.
+Library.LoadingOrder = { "Dropdown", "Slider", "Stepper", "Input", "ColorPicker", "Keybind", "Toggle" }
+
+-- Flags a config never saves or loads, like Obsidian's SaveManager:SetIgnoreIndexes.
+function Window:SetIgnoreFlags(flags)
+    self._ignoreFlags = self._ignoreFlags or {}
+    for _, flag in ipairs(flags or {}) do
+        self._ignoreFlags[flag] = true
+    end
+end
+
+function Window:SetLoadingOrder(order)
+    self._loadingOrder = type(order) == "table" and order or nil
+end
+
 function Window:_applyFlags(data, silent)
     silent = silent == true
     self._pendingFlags = {}
+    local ignore = self._ignoreFlags or {}
+    local order = self._loadingOrder or Library.LoadingOrder
+    local queue = {}
     for flag, entry in pairs(data) do
-        local element = Library.Flags[flag]
-        if element and type(element.Set) == "function" then
-            if entryMatches(element, entry) then
-                pcall(deserializeFlag, element, entry, silent)
+        if not ignore[flag] then
+            local element = Library.Flags[flag]
+            if element and type(element.Set) == "function" then
+                if entryMatches(element, entry) then
+                    table.insert(queue, { Element = element, Entry = entry, Rank = table.find(order, element._type) or 0 })
+                end
+            elseif type(entry) == "table" then
+                self._pendingFlags[flag] = { Entry = entry, Silent = silent }
             end
-        elseif type(entry) == "table" then
-            self._pendingFlags[flag] = { Entry = entry, Silent = silent }
         end
+    end
+    table.sort(queue, function(a, b)
+        return a.Rank < b.Rank
+    end)
+    -- Like Obsidian: each flag is deferred onto its own thread, so a callback
+    -- that loops while its toggle is on can't stall the others or the script
+    -- that asked for the load.
+    for _, item in ipairs(queue) do
+        task.defer(function()
+            if not item.Element._destroyed and not self._destroyed then
+                pcall(deserializeFlag, item.Element, item.Entry, silent)
+            end
+        end)
     end
 end
 
@@ -7409,11 +7475,22 @@ function Window:SetAutoloadMode(mode)
 end
 
 function Window:LoadAutoload(silent)
+    if self._autoloaded then
+        return false, "autoload already ran"
+    end
+    self._autoloaded = true
     local name = self:GetAutoload()
     if not name then
         return false, "no autoload config"
     end
-    return self:LoadConfig(name, silent)
+    local ok, err = self:LoadConfig(name, silent)
+    pcall(self.Notify, self, {
+        Title = ok and "Autoload" or "Autoload failed",
+        Content = ok and ("Loaded config %q"):format(name) or tostring(err),
+        Type = ok and "Success" or "Error",
+        Duration = 3,
+    })
+    return ok, err
 end
 
 -- Themes
@@ -19647,6 +19724,20 @@ function Window:Destroy()
     self._connections = {}
     self._inputListeners = { Began = {}, Changed = {}, Ended = {}, Render = {} }
     self._frameSteps = {}
+    if self._pendingFlags then
+        self._pendingFlags = {}
+    end
+    -- Switch this window's toggles off so their feature loops stop with it,
+    -- instead of running on beside a re-executed copy.
+    for _, element in pairs(Library.Flags) do
+        if element._window == self and element._type == "Toggle" and element.Value == true then
+            task.spawn(pcall, element.Set, element, false)
+        end
+    end
+    local registry = Library._registry()
+    if registry and registry[self._registryKey] == self then
+        registry[self._registryKey] = nil
+    end
 
     local gui = self.Gui
     local removed = false

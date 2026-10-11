@@ -2911,17 +2911,23 @@ function Tab:Input(opts)
     end)
 
     return finishElement(self, opts, {
-        Set = function(_, newValue)
-            box.Text = tostring(newValue)
+        Set = function(_, newValue, silent)
+            local before = box.Text
+            box.Text = tostring(newValue == nil and "" or newValue)
             if opts.Numeric then
                 local number = Library._parseAmount(box.Text)
                 if number then
                     lastText, value = box.Text, number
                 else
                     box.Text = lastText
+                    return
                 end
             end
             flashStroke(frameStroke)
+            -- Configs load through here, so the script hears the loaded text.
+            if not silent and box.Text ~= before then
+                safeCall(opts.Callback, opts.Numeric and value or box.Text, false)
+            end
         end,
         Get = function()
             if opts.Numeric then

@@ -134,16 +134,16 @@ local function finishElement(tab, opts, element, frame, kind)
 end
 
 Library.Theme = {
-    Background = Color3.fromRGB(15, 18, 26),
-    Surface = Color3.fromRGB(18, 22, 31),
-    Surface2 = Color3.fromRGB(22, 26, 37),
-    Surface3 = Color3.fromRGB(37, 44, 60),
-    Stroke = Color3.fromRGB(34, 40, 55),
-    StrokeHover = Color3.fromRGB(70, 84, 112),
+    Background = Color3.fromRGB(15, 15, 15),
+    Surface = Color3.fromRGB(20, 20, 20),
+    Surface2 = Color3.fromRGB(25, 25, 25),
+    Surface3 = Color3.fromRGB(50, 50, 50),
+    Stroke = Color3.fromRGB(40, 40, 40),
+    StrokeHover = Color3.fromRGB(70, 70, 70),
     Accent = Color3.fromRGB(128, 160, 246),
-    AccentDark = Color3.fromRGB(14, 18, 30),
-    Text = Color3.fromRGB(228, 232, 242),
-    Muted = Color3.fromRGB(116, 126, 148),
+    AccentDark = Color3.fromRGB(12, 12, 12),
+    Text = Color3.fromRGB(255, 255, 255),
+    Muted = Color3.fromRGB(140, 140, 140),
     Warning = Color3.fromRGB(240, 176, 108),
     Success = Color3.fromRGB(150, 220, 170),
     Error = Color3.fromRGB(240, 120, 120),
@@ -1280,21 +1280,24 @@ end
 
 function Tab:Label(opts)
     opts = normalize(opts, { Name = "Text", Title = "Text" })
+    -- Obsidian-style: plain full-strength text sitting on the groupbox, wrapping.
     local text_ = label({
         Size = UDim2.new(1, 0, 0, 18),
+        AutomaticSize = Enum.AutomaticSize.Y,
         Text = Library._rich(opts.Text or ""),
-        TextSize = 13,
+        TextSize = 14,
         FontFace = Fonts.Regular,
-        TextColor3 = Library._color(opts.Color) or Theme.Muted,
+        TextColor3 = Library._color(opts.Color) or Theme.Text,
+        TextWrapped = true,
+        TextTruncate = Enum.TextTruncate.None,
         RichText = true,
         LayoutOrder = self:_nextOrder(),
         Parent = self.List,
     })
     if metricsOf(self).Compact then
-        text_.TextSize = 12
         padding(text_, 14, 14)
     else
-        padding(text_, 2)
+        padding(text_, 2, 2)
     end
     local handle = {
         Set = function(_, value)
@@ -1304,7 +1307,7 @@ function Tab:Label(opts)
             return text_.Text
         end,
         SetColor = function(_, color)
-            tween(text_, { TextColor3 = Library._color(color) or Theme.Muted }, 0.25)
+            tween(text_, { TextColor3 = Library._color(color) or Theme.Text }, 0.25)
         end,
     }
     if type(opts.Update) == "function" then
@@ -9908,7 +9911,7 @@ Tab.CreateThemeManager = Tab.ThemeManager
 
 -- Status: read-only key/value lines, mostly for groupboxes, in several styles.
 
-local STATUS_HEIGHT = { Plain = 22, Row = 24, Badge = 28, Dot = 24, Bar = 38, Stat = 46 }
+local STATUS_HEIGHT = { Plain = 18, Row = 20, Badge = 24, Dot = 20, Bar = 34, Stat = 44 }
 
 -- Tone: a theme key, a Color3 or "#rrggbb".
 local function toneColor(tone)
@@ -9942,11 +9945,16 @@ function Tab:Status(opts)
     local compact = metricsOf(self).Compact
     local window = self.Window
     local height = STATUS_HEIGHT[style]
-    local pad = compact and 0 or 8
-    local frame = card(self, "Frame", height + pad * 2, opts)
+    -- Obsidian-style: no card, the text sits straight on the groupbox.
+    local pad = 1
+    local frame, frameStroke = card(self, "Frame", height + pad * 2, opts)
+    frame.BackgroundTransparency = 1
+    frameStroke.Transparency = 1
+    frameStroke:SetAttribute("Hidden", true)
+    local inset = compact and 14 or 2
     local holder = create("Frame", {
-        Position = UDim2.fromOffset(14, pad),
-        Size = UDim2.new(1, -28, 0, height),
+        Position = UDim2.fromOffset(inset, pad),
+        Size = UDim2.new(1, -inset * 2, 0, height),
         BackgroundTransparency = 1,
         Parent = frame,
     })
@@ -9970,9 +9978,10 @@ function Tab:Status(opts)
         keyLabel = label({
             Size = UDim2.new(0, 0, 1, 0),
             AutomaticSize = Enum.AutomaticSize.X,
-            TextSize = 12,
+            TextSize = 14,
             FontFace = Fonts.Regular,
-            TextColor3 = Theme.Muted,
+            TextColor3 = Theme.Text,
+            TextTransparency = 0.4,
             TextTruncate = Enum.TextTruncate.None,
             LayoutOrder = 1,
             Parent = holder,
@@ -9980,7 +9989,7 @@ function Tab:Status(opts)
         valueLabel = label({
             Size = UDim2.new(0, 0, 1, 0),
             AutomaticSize = Enum.AutomaticSize.X,
-            TextSize = 12,
+            TextSize = 14,
             TextColor3 = Theme.Text,
             TextTruncate = Enum.TextTruncate.None,
             LayoutOrder = 2,
@@ -9988,10 +9997,11 @@ function Tab:Status(opts)
         })
     elseif style == "Stat" then
         keyLabel = label({
-            Position = UDim2.fromOffset(0, 3),
-            Size = UDim2.new(1, 0, 0, 14),
-            TextSize = 11,
-            TextColor3 = Theme.Muted,
+            Position = UDim2.fromOffset(0, 1),
+            Size = UDim2.new(1, 0, 0, 16),
+            TextSize = 13,
+            TextColor3 = Theme.Text,
+            TextTransparency = 0.4,
             Parent = holder,
         })
         valueLabel = label({
@@ -10038,9 +10048,10 @@ function Tab:Status(opts)
         keyLabel = label({
             Position = UDim2.fromOffset(keyX, 0),
             Size = UDim2.new(0.55, -keyX, 0, rowHeight),
-            TextSize = 12,
+            TextSize = 14,
             FontFace = Fonts.Regular,
-            TextColor3 = Theme.Muted,
+            TextColor3 = Theme.Text,
+            TextTransparency = 0.4,
             Parent = holder,
         })
         if style == "Badge" then
@@ -10048,7 +10059,7 @@ function Tab:Status(opts)
             chip = create("Frame", {
                 AnchorPoint = Vector2.new(1, 0.5),
                 Position = UDim2.new(1, 0, 0.5, 0),
-                Size = UDim2.fromOffset(0, 22),
+                Size = UDim2.fromOffset(0, 20),
                 AutomaticSize = Enum.AutomaticSize.X,
                 BackgroundColor3 = toneColor(handle.Tone),
                 BackgroundTransparency = 0.86,
@@ -10061,7 +10072,7 @@ function Tab:Status(opts)
             valueLabel = label({
                 Size = UDim2.new(0, 0, 1, 0),
                 AutomaticSize = Enum.AutomaticSize.X,
-                TextSize = 12,
+                TextSize = 14,
                 TextColor3 = toneColor(handle.Tone),
                 TextTruncate = Enum.TextTruncate.None,
                 Parent = chip,
@@ -10071,7 +10082,7 @@ function Tab:Status(opts)
                 AnchorPoint = Vector2.new(1, 0),
                 Position = UDim2.new(1, 0, 0, 0),
                 Size = UDim2.new(0.45, 0, 0, rowHeight),
-                TextSize = 12,
+                TextSize = 14,
                 TextColor3 = Theme.Text,
                 TextXAlignment = Enum.TextXAlignment.Right,
                 Parent = holder,
@@ -10079,7 +10090,7 @@ function Tab:Status(opts)
         end
         if style == "Bar" then
             local track = create("Frame", {
-                Position = UDim2.fromOffset(0, 25),
+                Position = UDim2.fromOffset(0, 24),
                 Size = UDim2.new(1, 0, 0, 5),
                 BackgroundColor3 = Theme.Surface3,
                 BorderSizePixel = 0,

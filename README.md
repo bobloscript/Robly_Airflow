@@ -59,7 +59,7 @@ Settings:CreateThemeManager({ Side = "Right" })
 | [Groupbox](#groupbox) | [Input](#input) · [Keybind](#keybind) · [Color Picker](#color-picker) | [Notification](#notification) | [Fonts](#fonts) |
 | [Visibility](#visibility) · [Tooltips](#tooltips) | [Label](#label) · [Paragraph](#paragraph) · [Section](#section) · [Divider](#divider) | [Confirm](#confirm) | |
 | [Search](#search) | [Status](#status) · [Status List](#status-list) · [Progress](#progress) | | |
-| | [Image](#image) · [Viewport](#viewport) · [Table](#table) | | |
+| | [Image](#image) · [Viewport](#viewport) · [Table](#table) · [Log](#log) | | |
 
 ---
 
@@ -444,6 +444,30 @@ Charge = Box:CreateSlider({ Name = "Charge Distance", Range = { 5, 60 }, Visible
 - Hiding an open dropdown or colour picker closes it, and hiding a keybind stops a capture.
 - A hidden pinned status leaves the minimized island until it is shown again.
 
+### Depends on
+
+Instead of wiring callbacks, give an element a `DependsOn` rule and it shows only while the rule passes. Rules are rechecked ten times a second, so they follow clicks, config loads and changes made from code.
+
+```lua
+Box:CreateSlider({ Name = "Undercut %", Range = { 1, 50 }, Flag = "Undercut",
+    DependsOn = { Flag = "PriceMode", Value = "Undercut" } })
+
+Box:CreateSlider({ Name = "Max Bid", Range = { 100, 10000 }, Flag = "MaxBid",
+    DependsOn = "AutoBid", DependsMode = "Disable" })
+```
+
+| Rule | Passes when |
+| --- | --- |
+| `"Flag"` | The flag is on: a toggle that's on, a dropdown with a pick, a non-zero number, a non-empty text or a bound key. |
+| `{ Flag = "Mode", Value = "Percent" }` | The flag equals `Value`. `Value` can be a list of accepted values; a multi dropdown passes when it holds any of them. |
+| `{ Flag = "AutoBid", Not = true }` | The opposite of the rule. |
+| `{ "AutoSell", { Flag = "Mode", Value = "Fixed" } }` | Every rule in the list passes. |
+| `function() return ... end` | The function returns true. |
+
+`DependsMode = "Disable"` dims the element and blocks input instead of hiding it. `SetDependsOn(rule, mode?)` changes the rule later; `nil` removes it. A hidden element keeps its flag, and still saves and loads like any hidden element.
+
+Any element can also be switched off by hand: `Disabled = true` in its options, or `SetDisabled(bool)` and `IsDisabled()` on its handle.
+
 ---
 
 ## Tooltips
@@ -707,6 +731,9 @@ Button:SetText("Respawn")
 | `Desc` | string | — | Hint text under the label. |
 | `Icon` | string \| number \| table | — | Leading icon. |
 | `Style` | string | — | `"Primary"` fills the card with the accent colour. |
+| `Confirm` | boolean \| string | — | Two-step click: the first click shows `"Click again to confirm"` (or your text) in the warning colour, and a second click within `ConfirmTimeout` runs the callback. |
+| `ConfirmTimeout` | number | `3` | Seconds before an armed button resets. |
+| `HoldToConfirm` | boolean \| number | — | Hold to run: the button fills while pressed and runs when full. `true` is one second, a number sets the seconds. Letting go early or sliding off cancels. |
 | `Callback` | function | — | Runs on click. |
 
 ### Handle
@@ -714,6 +741,7 @@ Button:SetText("Respawn")
 | Member | Description |
 | --- | --- |
 | `SetText(text)` | Replace the label. |
+| `Disarm()` | Reset an armed `Confirm` button. |
 
 ---
 
@@ -957,7 +985,9 @@ Clicking the chip unfolds a popup out of it, floating over the window under the 
 | --- | --- |
 | `.Open` | Whether the popup is showing. |
 | `Set(value, skipCallback?)` | Select a value, or a list in multi mode. |
-| `Refresh(options, keepSelection?, skipCallback?)` | Replace the rows. A pick only counts while its option is in the list, so if the refresh changes the value (a config's saved picks becoming real options, or picks dropped), the callback runs with the new value. Saving keeps picks whose option is missing right now. |
+| `SetOptions(options, settings?)` | Replace the rows. `settings` is `{ KeepSelection = true, Silent = false }`: picks are kept by default, and `Silent = true` skips the callback. A boolean works as `KeepSelection`. A pick only counts while its option is in the list, so if the new rows change the value (a config's saved picks becoming real options, or picks dropped), the callback runs with it unless silent. Saving keeps picks whose option is missing right now. |
+| `GetOptions()` | A copy of the rows. |
+| `Refresh(options, keepSelection?, skipCallback?)` | The older form of `SetOptions`: picks are dropped unless `keepSelection` is true. |
 | `SetOpen(open)` | Show or hide the popup. |
 | `Get()` | The current selection. |
 
@@ -1291,6 +1321,77 @@ A row is a list of values in column order, or a table keyed by each column's `Ke
 | `SetColumns(columns)` | Rebuild the header and clear the sort. |
 | `SetMaxRows(n)` / `SetTitle(text)` | Change the visible row count or the title. |
 | `SetSearch(text)` | Fill the search box from code; `""` clears it. |
+
+### Editable tables
+
+> Give a column a `Type` and its cells become editors: rows get added and removed in the table, and `Get()` hands back plain row tables.
+
+```lua
+local Rules = Tab:CreateTable({
+    Name = "Price Rules",
+    Columns = {
+        { Name = "Item", Type = "Text", Placeholder = "Item name" },
+        { Name = "Sell", Type = "Number", Min = 0, Integer = true, Align = "Right", Width = 0.22 },
+        { Name = "Buy", Type = "Toggle", Align = "Center", Width = 0.14 },
+        { Name = "Mode", Type = "Dropdown", Options = { "Market", "Auction", "Trade" } },
+    },
+    Rows = { { Item = "Golden Egg", Sell = 500, Buy = false, Mode = "Market" } },
+    Flag = "PriceRules",
+    OnChanged = function(rows) end,
+})
+
+for _, rule in ipairs(Rules:Get()) do
+    print(rule.Item, rule.Sell, rule.Buy, rule.Mode)
+end
+```
+
+`Text` and `Number` cells are text boxes that commit when they lose focus. A number takes the same shorthand as inputs (`1.5k`), is clamped to `Min` and `Max`, rounds with `Integer = true`, and goes back to its old value when the text isn't a number. `Toggle` cells are switches. `Dropdown` cells open a short list of `Options` (a list, or `function(row)` returning one). Any column without a `Type` stays plain text. `Editable = true` turns editing on without typed columns, for just the add and remove controls.
+
+New rows come from `NewRow` (a table, or a function returning one), else from each column's `Default`, else off, `Min` or `0`, the first option, or `""`. They're keyed by column `Key` (the name by default). A `Flag` saves the rows with the config; loading one replaces them.
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `Columns[i].Type` | string | — | `"Text"`, `"Number"`, `"Toggle"` or `"Dropdown"`. |
+| `Columns[i].Options` / `Min` / `Max` / `Integer` / `Default` / `Placeholder` | — | — | Per-type settings as above. |
+| `OnChanged` | function | — | `function(rows)` after any edit, add or remove, and after `SetRows` unless it's called with `silent = true`. |
+| `NewRow` | table \| function | — | The row the Add button inserts. |
+| `AllowAdd` / `AllowRemove` | boolean | `true` | The Add row button under the table, and the remove column at the end of each row. |
+| `AddText` | string | `"Add row"` | Text on the Add button. |
+| `Flag` | string | — | Save the rows with the config. |
+
+`NewRow()` on the handle returns a fresh row without adding it.
+
+---
+
+## Log
+
+> A capped, scrolling list of timestamped lines, for a history the latest status line would overwrite.
+
+```lua
+local Activity = Tab:CreateLog({ Name = "Activity", MaxEntries = 100, MaxRows = 6 })
+
+Activity:Push("Bought <Accent>Golden Egg</Accent> for 480", "Success")
+Activity:Push("Trade declined", "Warning")
+Activity:Clear()
+```
+
+New lines go at the bottom. While you're scrolled to the end the log follows them; scroll up and it stays put. Past `MaxEntries` the oldest line drops off. Lines wrap, and the text is rich text, so [coloured text](#coloured-text) works. `CreateFeed` is the same element.
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `Name` / `Desc` | string | — | Title and hint. |
+| `MaxEntries` | number | `100` | Lines kept. |
+| `MaxRows` | number | `6` | Lines shown before it scrolls. |
+| `Timestamps` | boolean | `true` | A muted time before each line. |
+| `TimeFormat` | string | `"%H:%M:%S"` | `os.date` format for it. |
+| `EmptyText` | string | `"Nothing logged yet"` | Shown with no lines. |
+
+| Member | Description |
+| --- | --- |
+| `Push(text, color?)` | Add a line. `color` is a Color3, `"#rrggbb"` or a theme key (`"Success"`, `"Error"`, `"Muted"`). Also `Add` and `Log`. |
+| `Clear()` | Remove every line. |
+| `Get()` | Copies of the lines, oldest first: `{ Text, Color, Time }`. |
+| `SetMaxEntries(n)` / `SetTitle(text)` | Change the cap or the title. |
 
 ---
 

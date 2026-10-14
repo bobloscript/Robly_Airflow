@@ -62,7 +62,7 @@ local function finishElement(tab, opts, element, frame, kind)
         return element._userVisible
     end
     function element:_isShown()
-        return element._userVisible and not (tab and tab._userVisible == false)
+        return element._userVisible and not element._dependHidden and not (tab and tab._userVisible == false)
     end
     function element:SetVisible(visible)
         visible = visible and true or false
@@ -79,7 +79,7 @@ local function finishElement(tab, opts, element, frame, kind)
             end
         end
         if frame then
-            frame.Visible = visible
+            frame.Visible = visible and not element._dependHidden
         end
         if window then
             window._controlsDirty = true
@@ -87,6 +87,32 @@ local function finishElement(tab, opts, element, frame, kind)
     end
     if frame and not element._userVisible then
         frame.Visible = false
+    end
+    -- Disabled: dimmed under a cover that swallows input.
+    function element:SetDisabled(disabled)
+        Library._setDisabled(element, frame, disabled)
+    end
+    function element:IsDisabled()
+        return element.Disabled == true
+    end
+    if opts.Disabled == true then
+        element:SetDisabled(true)
+    end
+    -- DependsOn: shown (or enabled, with DependsMode = "Disable") only while
+    -- other flags allow it. See Library._dependsMet for the rule forms.
+    function element:SetDependsOn(rule, mode)
+        element._dependsOn = rule
+        element._dependsMode = mode or element._dependsMode
+        element._dependsMet = nil
+        if rule == nil then
+            Library._applyDepends(element, true)
+        elseif window then
+            Library._watchDepends(window, element)
+        end
+    end
+    if opts.DependsOn ~= nil then
+        element._dependsMode = opts.DependsMode
+        element:SetDependsOn(opts.DependsOn)
     end
     -- Tooltip: a string, or { Title, Text, Icon }. nil, false or "" hides it.
     function element:SetTooltip(tip)
@@ -1458,6 +1484,9 @@ local function rowButton(tab, opts)
     end)
 
     return finishElement(tab, opts, {
+        _title = title,
+        _titleColor = textColor,
+        _fillHost = box,
         SetText = function(_, value)
             title.Text = value
         end,
@@ -1466,6 +1495,9 @@ end
 
 function Tab:Button(opts)
     opts = normalize(opts, { Title = "Name", Description = "Desc" })
+    if (opts.Confirm or opts.HoldToConfirm) and not opts._gated then
+        return Library._gateButton(self, opts)
+    end
     if metricsOf(self).Compact then
         return rowButton(self, opts)
     end
@@ -1521,6 +1553,9 @@ function Tab:Button(opts)
     end)
 
     return finishElement(self, opts, {
+        _title = title,
+        _titleColor = textColor,
+        _fillHost = button,
         SetText = function(_, value)
             title.Text = value
         end,
@@ -2704,6 +2739,29 @@ function Tab:Dropdown(opts)
         if not silent and not sameValue(before, currentValue()) then
             safeCall(opts.Callback, currentValue())
         end
+    end
+
+    -- SetOptions(list, { KeepSelection = true, Silent = false }): replace the
+    -- options. Picks are kept by default; a boolean works as KeepSelection.
+    function self_:SetOptions(newOptions, settings)
+        local keep, silent = true, false
+        if type(settings) == "boolean" then
+            keep = settings
+        elseif type(settings) == "table" then
+            local wanted = settings.KeepSelection
+            if wanted == nil then
+                wanted = settings.keepSelection
+            end
+            if wanted ~= nil then
+                keep = wanted ~= false
+            end
+            silent = settings.Silent == true or settings.silent == true
+        end
+        self_:Refresh(newOptions, keep, silent)
+    end
+
+    function self_:GetOptions()
+        return table.clone(options)
     end
 
     -- Every pick, including ones whose option isn't in the list right now, so
@@ -7558,6 +7616,285 @@ for _, name in ipairs(THEME_KEYS) do
     Library._toneTags[string.lower(name)] = name
 end
 
+-- DependsOn rules: "Flag" (its value is on: true, a non-empty pick, a
+-- non-zero number), { Flag, Value, Not } (Value may be a list of accepted
+-- values; a multi dropdown passes when it holds any of them), a list of rules
+-- that must all pass, or a function returning true.
+function Library._dependsMet(rule)
+    if type(rule) == "function" then
+        local ok, result = pcall(rule)
+        return ok and result and true or false
+    end
+    if type(rule) == "string" then
+        rule = { Flag = rule }
+    end
+    if type(rule) ~= "table" then
+        return true
+    end
+    if rule.Flag == nil then
+        for _, sub in ipairs(rule) do
+            if not Library._dependsMet(sub) then
+                return false
+            end
+        end
+        return true
+    end
+    local element = Library.Flags[rule.Flag]
+    local met = false
+    if element and type(element.Get) == "function" then
+        local ok, value = pcall(element.Get, element)
+        if ok then
+            if rule.Value ~= nil then
+                local wanted = type(rule.Value) == "table" and rule.Value or { rule.Value }
+                local values = type(value) == "table" and value or { value }
+                for _, item in ipairs(wanted) do
+                    if table.find(values, item) then
+                        met = true
+                        break
+                    end
+                end
+            else
+                met = value == true
+                    or (type(value) == "number" and value ~= 0)
+                    or (type(value) == "string" and value ~= "")
+                    or (type(value) == "table" and next(value) ~= nil)
+                    or typeof(value) == "EnumItem"
+                    or typeof(value) == "Color3"
+            end
+        end
+    end
+    if rule.Not then
+        met = not met
+    end
+    return met
+end
+
+function Library._applyDepends(element, force)
+    local met = element._dependsOn == nil or Library._dependsMet(element._dependsOn)
+    if met == element._dependsMet and not force then
+        return
+    end
+    element._dependsMet = met
+    local mode = string.lower(tostring(element._dependsMode or "Hide"))
+    if mode == "disable" then
+        if element._dependHidden then
+            Library._setDependHidden(element, false)
+        end
+        element._dependDisabled = not met
+        Library._setDisabled(element, element._frame, element.Disabled)
+    else
+        if element._dependDisabled then
+            element._dependDisabled = false
+            Library._setDisabled(element, element._frame, element.Disabled)
+        end
+        Library._setDependHidden(element, not met)
+    end
+end
+
+function Library._setDependHidden(element, hidden)
+    hidden = hidden == true
+    if hidden == (element._dependHidden == true) then
+        return
+    end
+    element._dependHidden = hidden
+    if hidden then
+        if element._onHide then
+            element._onHide()
+        end
+        if element.Open and type(element.SetOpen) == "function" then
+            element:SetOpen(false)
+        end
+    end
+    local frame = element._frame
+    if frame then
+        frame.Visible = element._userVisible ~= false and not hidden
+    end
+    if element._window then
+        element._window._controlsDirty = true
+    end
+end
+
+-- Rules are checked ten times a second, so they follow config loads and
+-- changes made from code as well as clicks.
+function Library._watchDepends(window, element)
+    if not window._dependents then
+        window._dependents = {}
+        local last = 0
+        window:_listen("Render", function()
+            local now = os.clock()
+            if now - last < 0.1 then
+                return
+            end
+            last = now
+            local list = window._dependents
+            for index = #list, 1, -1 do
+                local item = list[index]
+                if item._destroyed then
+                    table.remove(list, index)
+                elseif item._dependsOn ~= nil then
+                    Library._applyDepends(item)
+                end
+            end
+        end)
+    end
+    if not table.find(window._dependents, element) then
+        table.insert(window._dependents, element)
+    end
+    Library._applyDepends(element, true)
+end
+
+-- SetDisabled(true) or a DependsOn rule in "Disable" mode dims the element
+-- under a cover that swallows clicks; either one keeps it disabled.
+function Library._setDisabled(element, frame, disabled)
+    element.Disabled = disabled == true
+    if not frame then
+        return
+    end
+    local off = element.Disabled or element._dependDisabled == true
+    if off == (element._covered == true) then
+        return
+    end
+    element._covered = off
+    if off then
+        if element._onHide then
+            element._onHide()
+        end
+        if element.Open and type(element.SetOpen) == "function" then
+            element:SetOpen(false)
+        end
+    end
+    local cover = element._cover
+    if not cover then
+        cover = create("TextButton", {
+            Name = "DisabledCover",
+            Size = UDim2.fromScale(1, 1),
+            BackgroundColor3 = Theme.Surface2,
+            BackgroundTransparency = 1,
+            AutoButtonColor = false,
+            Text = "",
+            ZIndex = 20,
+            Visible = false,
+            Parent = frame,
+        })
+        cover:SetAttribute("NoDrag", true)
+        corner(cover)
+        element._cover = cover
+    end
+    element._coverGeneration = (element._coverGeneration or 0) + 1
+    local generation = element._coverGeneration
+    if off then
+        cover.Visible = true
+        tween(cover, { BackgroundTransparency = 0.4 }, 0.15)
+    else
+        tween(cover, { BackgroundTransparency = 1 }, 0.15)
+        task.delay(0.16, function()
+            if element._coverGeneration == generation then
+                cover.Visible = false
+            end
+        end)
+    end
+end
+
+-- Confirm = true (or the text to show): the first click arms the button and
+-- a second one within ConfirmTimeout seconds runs it. HoldToConfirm = true
+-- (one second) or a number of seconds: the button fills while held and runs
+-- when full.
+function Library._gateButton(tab, opts)
+    local real = opts.Callback
+    local holdTime = opts.HoldToConfirm == true and 1 or tonumber(opts.HoldToConfirm)
+    local gated = table.clone(opts)
+    gated._gated = true
+    local handle
+    local name = tostring(opts.Name or "Button")
+    local armed, generation = false, 0
+    local function setArmed(value)
+        armed = value
+        generation += 1
+        if not handle then
+            return
+        end
+        handle._title.Text = value and tostring(type(opts.Confirm) == "string" and opts.Confirm or "Click again to confirm") or name
+        tween(handle._title, { TextColor3 = value and Theme.Warning or handle._titleColor }, 0.15)
+    end
+    gated.Callback = function()
+        if holdTime then
+            return
+        end
+        if armed then
+            setArmed(false)
+            safeCall(real)
+            return
+        end
+        setArmed(true)
+        local current = generation
+        task.delay(tonumber(opts.ConfirmTimeout) or 3, function()
+            if armed and generation == current then
+                setArmed(false)
+            end
+        end)
+    end
+    handle = tab:Button(gated)
+    local setText = handle.SetText
+    handle.SetText = function(self_, value)
+        name = tostring(value)
+        if not armed then
+            setText(self_, value)
+        end
+    end
+    function handle:Disarm()
+        if armed then
+            setArmed(false)
+        end
+    end
+    if holdTime then
+        local host = handle._fillHost
+        local fill = create("Frame", {
+            Size = UDim2.fromScale(0, 1),
+            BackgroundColor3 = Theme.Accent,
+            BackgroundTransparency = 0.7,
+            BorderSizePixel = 0,
+            ZIndex = 0,
+            Parent = host,
+        })
+        local holding = 0
+        local function release()
+            holding += 1
+            tween(fill, { Size = UDim2.fromScale(0, 1) }, 0.2, Enum.EasingStyle.Quint)
+        end
+        local frame = handle._frame
+        frame.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+                return
+            end
+            if handle.Disabled or handle._dependDisabled then
+                return
+            end
+            holding += 1
+            local current = holding
+            fill.Size = UDim2.fromScale(0, 1)
+            tween(fill, { Size = UDim2.fromScale(1, 1) }, holdTime, Enum.EasingStyle.Linear)
+            task.delay(holdTime, function()
+                if holding == current and not handle._destroyed then
+                    holding += 1
+                    tween(fill, { BackgroundTransparency = 0.45 }, 0.08)
+                    task.delay(0.12, function()
+                        fill.BackgroundTransparency = 0.7
+                        tween(fill, { Size = UDim2.fromScale(0, 1) }, 0.25, Enum.EasingStyle.Quint)
+                    end)
+                    safeCall(real)
+                end
+            end)
+        end)
+        frame.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                release()
+            end
+        end)
+        frame.MouseLeave:Connect(release)
+    end
+    return handle
+end
+
 -- A theme key, a Color3, "#rrggbb" or { r, g, b } as a Color3.
 function Library._color(value)
     if type(value) == "string" then
@@ -11125,8 +11462,22 @@ function Tab:Table(opts)
     local searchTop = hasHead and (titleTop + (opts.Desc and 38 or 22)) or (compact and 4 or inset)
     local gridTop = searchTop + (searchable and searchHeight + 6 or 0)
     local bottom = compact and 6 or inset
+    -- Editable: typed columns get editors in their cells, an Add row button
+    -- sits under the grid and a remove column ends each row.
+    local editable = opts.Editable == true
+    if not editable and type(opts.Columns) == "table" then
+        for _, column in ipairs(opts.Columns) do
+            if type(column) == "table" and column.Type ~= nil then
+                editable = true
+                break
+            end
+        end
+    end
+    local canAdd = editable and opts.AllowAdd ~= false
+    local canRemove = editable and opts.AllowRemove ~= false
+    local addHeight = canAdd and (TOUCH and 30 or 26) + 6 or 0
 
-    local frame, frameStroke = card(self, "Frame", gridTop + headerHeight + rowHeight + bottom, opts)
+    local frame, frameStroke = card(self, "Frame", gridTop + headerHeight + rowHeight + addHeight + bottom, opts)
     hoverStroke(frame, frameStroke)
     local title
     if hasHead then
@@ -11257,6 +11608,38 @@ function Tab:Table(opts)
         TextXAlignment = Enum.TextXAlignment.Center,
         Parent = grid,
     })
+    local addButton
+    if canAdd then
+        addButton = create("TextButton", {
+            AnchorPoint = Vector2.new(0, 1),
+            Position = UDim2.new(0, inset, 1, -bottom),
+            Size = UDim2.new(1, -inset * 2, 0, addHeight - 6),
+            BackgroundColor3 = Theme.Surface,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Text = "",
+            Parent = frame,
+        })
+        addButton:SetAttribute("NoDrag", true)
+        corner(addButton, UDim.new(0, 6))
+        local addStroke = stroke(addButton)
+        local addLabel = label({
+            Size = UDim2.fromScale(1, 1),
+            Text = "+  " .. tostring(opts.AddText or "Add row"),
+            TextSize = 12,
+            TextColor3 = Theme.Muted,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Parent = addButton,
+        })
+        addButton.MouseEnter:Connect(function()
+            tween(addLabel, { TextColor3 = Theme.Text }, 0.12)
+            tween(addStroke, { Color = Theme.StrokeHover }, 0.12)
+        end)
+        addButton.MouseLeave:Connect(function()
+            tween(addLabel, { TextColor3 = Theme.Muted }, 0.2)
+            tween(addStroke, { Color = Theme.Stroke }, 0.2)
+        end)
+    end
 
     local handle = { Rows = {} }
     local shownCount = nil
@@ -11308,7 +11691,7 @@ function Tab:Table(opts)
     end
 
     local function columnValue(row, column)
-        if column.Rank then
+        if column.Rank or column.Remove then
             return nil
         end
         if row[1] ~= nil or column.Key == nil then
@@ -11395,7 +11778,7 @@ function Tab:Table(opts)
         local shown = {}
         for _, item in ipairs(list) do
             for _, column in ipairs(columns) do
-                if not column.Rank then
+                if not column.Rank and not column.Remove then
                     local text = display(columnValue(item.Row, column), column, item.Row)
                     text = string.lower((string.gsub(text, "<[^>]->", "")))
                     if string.find(text, query, 1, true) then
@@ -11406,6 +11789,347 @@ function Tab:Table(opts)
             end
         end
         return shown
+    end
+
+    local function setCell(row, column, value)
+        if row[1] ~= nil or column.Key == nil then
+            row[column.Index] = value
+        else
+            row[column.Key] = value
+        end
+    end
+
+    local function columnKind(column)
+        local kind = string.lower(tostring(column.Type or ""))
+        if kind == "boolean" or kind == "bool" or kind == "switch" then
+            return "toggle"
+        elseif kind == "select" or kind == "option" then
+            return "dropdown"
+        end
+        return kind
+    end
+
+    -- One option list per table, opened under a dropdown cell.
+    local picker, pickerList, pickerAnchor
+    local function closePicker()
+        if picker then
+            picker.Visible = false
+        end
+        pickerAnchor = nil
+        if window._closePopup == closePicker then
+            window._closePopup = nil
+        end
+    end
+    local function placePicker()
+        if not picker or not picker.Visible or not pickerAnchor then
+            return
+        end
+        if not pickerAnchor.Parent or not pickerAnchor:IsDescendantOf(frame) then
+            closePicker()
+            return
+        end
+        local host = picker.Parent
+        local scale = math.max(window.Scale.Scale, 0.01)
+        local position = (pickerAnchor.AbsolutePosition - host.AbsolutePosition) / scale
+        local size = pickerAnchor.AbsoluteSize / scale
+        local hostSize = host.AbsoluteSize / scale
+        local width, height = picker.Size.X.Offset, picker.Size.Y.Offset
+        local y = position.Y + size.Y + 4
+        if y + height > hostSize.Y - 8 and position.Y - 4 - height >= 8 then
+            y = position.Y - 4 - height
+        end
+        picker.Position = UDim2.fromOffset(math.clamp(position.X, 8, math.max(hostSize.X - width - 8, 8)), y)
+    end
+    local function openPicker(anchor, row, column)
+        if window._closePopup and window._closePopup ~= closePicker then
+            window._closePopup()
+        end
+        if not picker then
+            picker = create("Frame", {
+                BackgroundColor3 = Theme.Surface2,
+                BorderSizePixel = 0,
+                ZIndex = 45,
+                Visible = false,
+            })
+            picker:SetAttribute("NoDrag", true)
+            corner(picker, UDim.new(0, 6))
+            stroke(picker, Theme.Stroke)
+            pickerList = create("ScrollingFrame", {
+                Size = UDim2.fromScale(1, 1),
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                ScrollBarThickness = 2,
+                ScrollBarImageColor3 = Theme.Accent,
+                ScrollingDirection = Enum.ScrollingDirection.Y,
+                AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                CanvasSize = UDim2.new(),
+                ZIndex = 45,
+                Parent = picker,
+            })
+            padding(pickerList, 4, 4, 4, 4)
+            create("UIListLayout", {
+                SortOrder = Enum.SortOrder.LayoutOrder,
+                Padding = UDim.new(0, 2),
+                Parent = pickerList,
+            })
+            window:_listen("Began", function(input)
+                if not picker.Visible then
+                    return
+                end
+                if input.KeyCode == Enum.KeyCode.Escape then
+                    closePicker()
+                elseif isPress(input) and not pointInside(pointerPosition(), picker) then
+                    closePicker()
+                end
+            end, handle)
+            window:_listen("Render", placePicker, handle)
+        end
+        for _, child in ipairs(pickerList:GetChildren()) do
+            if child:IsA("GuiButton") then
+                child:Destroy()
+            end
+        end
+        local options = column.Options
+        if type(options) == "function" then
+            local ok, result = pcall(options, row)
+            options = ok and result or nil
+        end
+        options = type(options) == "table" and options or {}
+        local current = columnValue(row, column)
+        local itemHeight = TOUCH and 28 or 24
+        for order, option in ipairs(options) do
+            local selected = option == current
+            local button = create("TextButton", {
+                Size = UDim2.new(1, 0, 0, itemHeight),
+                BackgroundColor3 = Theme.Surface3,
+                BackgroundTransparency = selected and 0.4 or 1,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                Text = "",
+                LayoutOrder = order,
+                ZIndex = 46,
+                Parent = pickerList,
+            })
+            corner(button, UDim.new(0, 4))
+            label({
+                Position = UDim2.fromOffset(8, 0),
+                Size = UDim2.new(1, -16, 1, 0),
+                Text = tostring(option),
+                TextSize = 12,
+                FontFace = Fonts.Regular,
+                TextColor3 = selected and Theme.Accent or Theme.Text,
+                ZIndex = 47,
+                Parent = button,
+            })
+            button.MouseEnter:Connect(function()
+                tween(button, { BackgroundTransparency = 0.25 }, 0.1)
+            end)
+            button.MouseLeave:Connect(function()
+                tween(button, { BackgroundTransparency = selected and 0.4 or 1 }, 0.2)
+            end)
+            button.MouseButton1Click:Connect(function()
+                closePicker()
+                if columnValue(row, column) ~= option then
+                    setCell(row, column, option)
+                    handle:_edited()
+                end
+            end)
+        end
+        local scale = math.max(window.Scale.Scale, 0.01)
+        local shown = math.clamp(#options, 1, 6)
+        picker.Size = UDim2.fromOffset(math.max(anchor.AbsoluteSize.X / scale, 120), shown * (itemHeight + 2) + 6)
+        picker.Parent = window:_popupHost(frame)
+        pickerList.CanvasPosition = Vector2.zero
+        pickerAnchor = anchor
+        picker.Visible = true
+        window._closePopup = closePicker
+        placePicker()
+    end
+
+    local function editorBox(cell)
+        local box = create("Frame", {
+            AnchorPoint = Vector2.new(0, 0.5),
+            Position = UDim2.fromScale(0, 0.5),
+            Size = UDim2.new(1, -6, 1, -6),
+            BackgroundColor3 = Theme.Surface,
+            BackgroundTransparency = 0.15,
+            BorderSizePixel = 0,
+            Parent = cell,
+        })
+        box:SetAttribute("NoDrag", true)
+        corner(box, UDim.new(0, 4))
+        return box, stroke(box)
+    end
+
+    local function makeEditor(entry, column, cell)
+        local kind = columnKind(column)
+        if kind == "toggle" then
+            local align = alignment(column)
+            local anchorX = align == Enum.TextXAlignment.Right and 1 or (align == Enum.TextXAlignment.Center and 0.5 or 0)
+            local switch = create("TextButton", {
+                AnchorPoint = Vector2.new(anchorX, 0.5),
+                Position = UDim2.new(anchorX, anchorX == 1 and -6 or 0, 0.5, 0),
+                Size = UDim2.fromOffset(28, 16),
+                BackgroundColor3 = Theme.Surface3,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                Text = "",
+                Parent = cell,
+            })
+            switch:SetAttribute("NoDrag", true)
+            corner(switch, UDim.new(1, 0))
+            local knob = create("Frame", {
+                AnchorPoint = Vector2.new(0, 0.5),
+                Position = UDim2.new(0, 2, 0.5, 0),
+                Size = UDim2.fromOffset(12, 12),
+                BackgroundColor3 = Color3.new(1, 1, 1),
+                BorderSizePixel = 0,
+                Parent = switch,
+            })
+            corner(knob, UDim.new(1, 0))
+            switch.MouseButton1Click:Connect(function()
+                local row = entry.Data
+                if row then
+                    setCell(row, column, columnValue(row, column) ~= true)
+                    handle:_edited()
+                end
+            end)
+            return { Kind = "Toggle", Switch = switch, Knob = knob }
+        elseif kind == "dropdown" then
+            local box = editorBox(cell)
+            local chip = create("TextButton", {
+                Size = UDim2.fromScale(1, 1),
+                BackgroundTransparency = 1,
+                AutoButtonColor = false,
+                Text = "",
+                Parent = box,
+            })
+            local valueLabel = label({
+                Position = UDim2.fromOffset(6, 0),
+                Size = UDim2.new(1, -24, 1, 0),
+                TextSize = textSize - 1,
+                FontFace = Fonts.Regular,
+                Parent = chip,
+            })
+            local arrow = create("ImageLabel", {
+                AnchorPoint = Vector2.new(1, 0.5),
+                Position = UDim2.new(1, -5, 0.5, 0),
+                Size = UDim2.fromOffset(10, 10),
+                BackgroundTransparency = 1,
+                ImageColor3 = Theme.Muted,
+                ScaleType = Enum.ScaleType.Fit,
+                Parent = chip,
+            })
+            applyIcon(arrow, "chevron-down")
+            chip.MouseButton1Click:Connect(function()
+                if entry.Data then
+                    if pickerAnchor == box and picker and picker.Visible then
+                        closePicker()
+                    else
+                        openPicker(box, entry.Data, column)
+                    end
+                end
+            end)
+            return { Kind = "Dropdown", Label = valueLabel }
+        end
+        local numeric = kind == "number"
+        local box, boxStroke = editorBox(cell)
+        local input = create("TextBox", {
+            Position = UDim2.fromOffset(6, 0),
+            Size = UDim2.new(1, -12, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "",
+            PlaceholderText = column.Placeholder or "",
+            PlaceholderColor3 = Theme.Muted,
+            TextColor3 = Theme.Text,
+            TextSize = textSize - 1,
+            FontFace = Fonts.Regular,
+            TextXAlignment = alignment(column),
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ClearTextOnFocus = false,
+            Parent = box,
+        })
+        local editing = nil
+        input.Focused:Connect(function()
+            tween(boxStroke, { Color = Theme.Accent }, 0.15)
+            editing = entry.Data
+            if editing then
+                local value = columnValue(editing, column)
+                input.Text = value == nil and "" or tostring(value)
+            end
+        end)
+        input.FocusLost:Connect(function()
+            tween(boxStroke, { Color = Theme.Stroke }, 0.2)
+            local row = editing
+            editing = nil
+            if not row then
+                return
+            end
+            local value = input.Text
+            if numeric then
+                value = Library._parseAmount(value)
+                if value == nil then
+                    handle:_redraw()
+                    return
+                end
+                if column.Integer then
+                    value = math.floor(value + 0.5)
+                end
+                value = math.clamp(value, tonumber(column.Min) or -math.huge, tonumber(column.Max) or math.huge)
+            end
+            if value ~= columnValue(row, column) then
+                setCell(row, column, value)
+                handle:_edited()
+            else
+                handle:_redraw()
+            end
+        end)
+        return { Kind = "Input", Input = input, Numeric = numeric }
+    end
+
+    local function makeRemove(entry, cell)
+        local button = create("ImageButton", {
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromOffset(14, 14),
+            BackgroundTransparency = 1,
+            ImageColor3 = Theme.Muted,
+            ScaleType = Enum.ScaleType.Fit,
+            Parent = cell,
+        })
+        button:SetAttribute("NoDrag", true)
+        applyIcon(button, "x")
+        button.MouseEnter:Connect(function()
+            tween(button, { ImageColor3 = Theme.Error }, 0.12)
+        end)
+        button.MouseLeave:Connect(function()
+            tween(button, { ImageColor3 = Theme.Muted }, 0.2)
+        end)
+        button.MouseButton1Click:Connect(function()
+            local index = entry.Index
+            if index and entry.Data and handle.Rows[index] == entry.Data then
+                table.remove(handle.Rows, index)
+                handle:_edited()
+            end
+        end)
+        return { Kind = "Remove" }
+    end
+
+    local function updateEditor(editor, value, column, row)
+        if editor.Kind == "Toggle" then
+            local on = value == true
+            tween(editor.Switch, { BackgroundColor3 = on and Theme.Accent or Theme.Surface3 }, 0.15)
+            tween(editor.Knob, { Position = on and UDim2.new(1, -14, 0.5, 0) or UDim2.new(0, 2, 0.5, 0) }, 0.15, Enum.EasingStyle.Quint)
+        elseif editor.Kind == "Dropdown" then
+            editor.Label.Text = value == nil and (column.Placeholder or "Select") or tostring(value)
+            editor.Label.TextColor3 = value == nil and Theme.Muted or Theme.Text
+        elseif editor.Kind == "Input" and not editor.Input:IsFocused() then
+            if value == nil then
+                editor.Input.Text = ""
+            else
+                editor.Input.Text = editor.Numeric and display(value, column, row) or tostring(value)
+            end
+        end
     end
 
     local function newRow()
@@ -11474,7 +12198,15 @@ function Tab:Table(opts)
                 })
                 corner(badge, UDim.new(1, 0))
             end
-            entry.Cells[order] = { Label = text, Badge = badge }
+            local editor
+            if column.Remove then
+                text.Visible = false
+                editor = makeRemove(entry, cell)
+            elseif editable and column.Type ~= nil then
+                text.Visible = false
+                editor = makeEditor(entry, column, cell)
+            end
+            entry.Cells[order] = { Label = text, Badge = badge, Editor = editor }
         end
         local canTap = tapGuard(rowFrame, function()
             return body
@@ -11502,7 +12234,7 @@ function Tab:Table(opts)
         local count = shownCount or #handle.Rows
         local visible = math.clamp(count, 1, maxRows)
         local gridHeight = headerHeight + visible * rowHeight
-        local total = gridTop + gridHeight + bottom
+        local total = gridTop + gridHeight + addHeight + bottom
         if shownHeight == total then
             return
         end
@@ -11547,6 +12279,8 @@ function Tab:Table(opts)
                     bindColors(cell.Label, { TextColor3 = cell.Label.TextColor3 })
                     cell.Badge.BackgroundColor3 = medal or Theme.Surface3
                     cell.Badge.BackgroundTransparency = medal and 0.05 or 1
+                elseif column.Remove then
+                    -- The remove button needs no per-row state.
                 else
                     local value = columnValue(row, column)
                     cell.Label.Text = Library._rich(display(value, column, row))
@@ -11569,6 +12303,9 @@ function Tab:Table(opts)
                     local color = Library._color(wanted) or (highlighted and Theme.Accent or Theme.Text)
                     cell.Label.TextColor3 = color
                     bindColors(cell.Label, { TextColor3 = color })
+                    if cell.Editor then
+                        updateEditor(cell.Editor, value, column, row)
+                    end
                 end
             end
         end
@@ -11718,8 +12455,19 @@ function Tab:Table(opts)
                 Format = column.Format,
                 Color = column.Color,
                 Sortable = column.Sortable ~= false and opts.Sortable ~= false,
+                Type = column.Type,
+                Options = column.Options,
+                Min = column.Min,
+                Max = column.Max,
+                Integer = column.Integer,
+                Default = column.Default,
+                Placeholder = column.Placeholder,
             })
         end
+        if canRemove then
+            table.insert(columns, { Name = "", Remove = true, Width = TOUCH and 30 or 26, Sortable = false })
+        end
+        closePicker()
         sortKey = nil
         layoutColumns()
         buildHeader()
@@ -11738,12 +12486,41 @@ function Tab:Table(opts)
         return nil
     end
 
-    function handle:SetRows(rows)
+    local function changed()
+        if editable then
+            safeCall(opts.OnChanged, handle.Rows)
+        end
+    end
+
+    -- An edit made in a cell: redraw, then tell the script.
+    function handle:_edited()
+        render()
+        changed()
+    end
+
+    function handle:_redraw()
+        render()
+    end
+
+    -- Saved through the config as plain copies of the rows.
+    function handle:_saveValue()
+        local list = {}
+        for index, row in ipairs(handle.Rows) do
+            list[index] = table.clone(row)
+        end
+        return list
+    end
+
+    function handle:SetRows(rows, silent)
         handle.Rows = {}
         for index, row in ipairs(type(rows) == "table" and rows or {}) do
-            handle.Rows[index] = type(row) == "table" and row or { row }
+            row = type(row) == "table" and row or { row }
+            handle.Rows[index] = editable and table.clone(row) or row
         end
         render()
+        if not silent then
+            changed()
+        end
     end
     handle.Set = handle.SetRows
 
@@ -11821,7 +12598,51 @@ function Tab:Table(opts)
     end
 
     handle:SetColumns(opts.Columns or {})
-    handle:SetRows(opts.Rows or {})
+    handle:SetRows(opts.Rows or {}, true)
+    -- A new row: NewRow (a table or a function returning one), or each
+    -- column's Default, falling back to off, Min or 0, the first option or "".
+    function handle:NewRow()
+        if type(opts.NewRow) == "function" then
+            local ok, row = pcall(opts.NewRow)
+            if ok and type(row) == "table" then
+                return row
+            end
+        elseif type(opts.NewRow) == "table" then
+            return table.clone(opts.NewRow)
+        end
+        local row = {}
+        for _, column in ipairs(columns) do
+            if not column.Rank and not column.Remove then
+                local value = column.Default
+                if value == nil then
+                    local kind = columnKind(column)
+                    if kind == "toggle" then
+                        value = false
+                    elseif kind == "number" then
+                        value = tonumber(column.Min) or 0
+                    elseif kind == "dropdown" then
+                        value = type(column.Options) == "table" and column.Options[1] or nil
+                    else
+                        value = ""
+                    end
+                end
+                row[column.Key] = value
+            end
+        end
+        return row
+    end
+    if addButton then
+        addButton.MouseButton1Click:Connect(function()
+            if searchBox then
+                searchBox.Text = ""
+            end
+            table.insert(handle.Rows, handle:NewRow())
+            handle:_edited()
+            task.defer(function()
+                body.CanvasPosition = Vector2.new(0, 1e7)
+            end)
+        end)
+    end
     if opts.SortBy ~= nil then
         handle:Sort(opts.SortBy, opts.SortDescending ~= false)
     end
@@ -11845,6 +12666,185 @@ function Tab:Table(opts)
     onTheme(grid, render)
     return finishElement(self, opts, handle, frame, "Table")
 end
+
+
+-- Log: a capped, scrolling list of timestamped lines, newest at the bottom.
+-- It follows new lines while scrolled to the end and stays put otherwise.
+function Tab:Log(opts)
+    opts = normalize(opts, { Title = "Name", Description = "Desc", Max = "MaxEntries", Limit = "MaxEntries" })
+    local metrics = metricsOf(self)
+    local compact = metrics.Compact
+    local inset = compact and 14 or 8
+    local hasHead = type(opts.Name) == "string" and opts.Name ~= ""
+    local titleTop = compact and 4 or 10
+    local lineHeight = TOUCH and 22 or 20
+    local textSize = compact and 12 or 13
+    local maxLines = math.max(math.floor(tonumber(opts.MaxRows or opts.Lines) or 6), 1)
+    local maxEntries = math.max(math.floor(tonumber(opts.MaxEntries) or 100), 1)
+    local listTop = hasHead and (titleTop + (opts.Desc and 38 or 22)) or (compact and 4 or inset)
+    local bottom = compact and 6 or inset
+    local listHeight = maxLines * lineHeight + 8
+    local timestamps = opts.Timestamps ~= false
+
+    local frame, frameStroke = card(self, "Frame", listTop + listHeight + bottom, opts)
+    hoverStroke(frame, frameStroke)
+    local title
+    if hasHead then
+        title = label({
+            Position = UDim2.fromOffset(14, titleTop),
+            Size = UDim2.new(1, -28, 0, metrics.TitleHeight),
+            Text = opts.Name,
+            TextSize = metrics.TextSize,
+            Parent = frame,
+        })
+        if opts.Desc then
+            label({
+                Position = UDim2.fromOffset(14, titleTop + metrics.TitleHeight + 1),
+                Size = UDim2.new(1, -28, 0, metrics.DescLine),
+                Text = opts.Desc,
+                TextSize = metrics.DescSize,
+                FontFace = Fonts.Regular,
+                TextColor3 = Theme.Muted,
+                Parent = frame,
+            })
+        end
+    end
+    local holder = create("Frame", {
+        Position = UDim2.fromOffset(inset, listTop),
+        Size = UDim2.new(1, -inset * 2, 0, listHeight),
+        BackgroundColor3 = Theme.Surface,
+        BackgroundTransparency = 0.2,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        Parent = frame,
+    })
+    corner(holder, UDim.new(0, 6))
+    stroke(holder, Theme.Stroke)
+    local list = create("ScrollingFrame", {
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 2,
+        ScrollBarImageColor3 = Theme.Accent,
+        ScrollBarImageTransparency = 0.4,
+        ScrollingDirection = Enum.ScrollingDirection.Y,
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        CanvasSize = UDim2.new(),
+        Parent = holder,
+    })
+    padding(list, 8, 8, 4, 4)
+    create("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = list,
+    })
+    local empty = label({
+        Size = UDim2.fromScale(1, 1),
+        Text = opts.EmptyText or "Nothing logged yet",
+        TextSize = 12,
+        FontFace = Fonts.Regular,
+        TextColor3 = Theme.Muted,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        Parent = holder,
+    })
+
+    local handle = { Entries = {} }
+    local lines = {}
+    local counter = 0
+
+    local function paint(entry)
+        local line = lines[entry]
+        if not line then
+            return
+        end
+        local text = Library._rich(entry.Text)
+        if timestamps then
+            text = ('<font color="#%s">%s</font>  %s'):format(Theme.Muted:ToHex(), os.date(opts.TimeFormat or "%H:%M:%S", entry.Time), text)
+        end
+        line.Text = text
+        line.TextColor3 = Library._color(entry.Color) or Theme.Text
+    end
+
+    local function trimTo(count)
+        while #handle.Entries > count do
+            local old = table.remove(handle.Entries, 1)
+            if lines[old] then
+                lines[old]:Destroy()
+                lines[old] = nil
+            end
+        end
+        empty.Visible = #handle.Entries == 0
+    end
+
+    local function atEnd()
+        return list.CanvasPosition.Y >= list.AbsoluteCanvasSize.Y - list.AbsoluteWindowSize.Y - 4
+    end
+
+    -- Push(text, color?): color is a Color3, "#rrggbb" or a theme key ("Success").
+    function handle:Push(text, color)
+        local follow = atEnd()
+        counter += 1
+        local entry = { Text = tostring(text == nil and "" or text), Color = color, Time = os.time() }
+        table.insert(handle.Entries, entry)
+        lines[entry] = label({
+            Size = UDim2.new(1, 0, 0, lineHeight),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            TextSize = textSize,
+            FontFace = Fonts.Regular,
+            TextWrapped = true,
+            TextTruncate = Enum.TextTruncate.None,
+            RichText = true,
+            LayoutOrder = counter,
+            Parent = list,
+        })
+        paint(entry)
+        trimTo(maxEntries)
+        if follow then
+            task.defer(function()
+                list.CanvasPosition = Vector2.new(0, 1e7)
+            end)
+        end
+        return entry
+    end
+    handle.Add = handle.Push
+    handle.Log = handle.Push
+
+    function handle:Clear()
+        trimTo(0)
+    end
+
+    -- Copies of the entries, oldest first: { Text, Color, Time }.
+    function handle:Get()
+        local copy = {}
+        for index, entry in ipairs(handle.Entries) do
+            copy[index] = { Text = entry.Text, Color = entry.Color, Time = entry.Time }
+        end
+        return copy
+    end
+
+    function handle:SetTitle(text)
+        if title then
+            title.Text = tostring(text)
+        end
+    end
+
+    function handle:SetMaxEntries(count)
+        maxEntries = math.max(math.floor(tonumber(count) or maxEntries), 1)
+        trimTo(maxEntries)
+    end
+
+    onTheme(holder, function()
+        for _, entry in ipairs(handle.Entries) do
+            paint(entry)
+        end
+    end)
+    return finishElement(self, opts, handle, frame, "Log")
+end
+
+Tab.CreateLog = Tab.Log
+Tab.AddLog = Tab.Log
+Tab.Feed = Tab.Log
+Tab.CreateFeed = Tab.Log
+Tab.AddFeed = Tab.Log
 
 Tab.CreateImage = Tab.Image
 Tab.AddImage = Tab.Image
@@ -20364,6 +21364,83 @@ do
         end
     end)
 end
+
+local Activity = Elements:CreateLog({
+    Name = "Activity",
+    MaxEntries = 50, -- the oldest lines drop off past this
+    MaxRows = 5,
+})
+
+local Rules = Elements:CreateTable({
+    Name = "Price Rules",
+    Desc = "Typed columns make a table editable",
+    Columns = {
+        { Name = "Item", Type = "Text", Placeholder = "Item name" },
+        { Name = "Sell", Type = "Number", Min = 0, Integer = true, Align = "Right", Width = 0.22 },
+        { Name = "Buy", Type = "Toggle", Align = "Center", Width = 0.14 },
+        { Name = "Mode", Type = "Dropdown", Options = { "Market", "Auction", "Trade" }, Width = 0.24 },
+    },
+    Rows = {
+        { Item = "Golden Egg", Sell = 500, Buy = false, Mode = "Market" },
+    },
+    Flag = "PriceRules", -- saved with the config like any other flag
+    OnChanged = function(Rows)
+        Activity:Push(("%d price rule(s)"):format(#Rows), "Muted")
+    end,
+})
+
+Activity:Push("Bought <Accent>Golden Egg</Accent> for 480", "Success")
+Activity:Push("Listed Silver Egg for 1,200")
+Activity:Push("Trade declined", "Warning")
+
+Elements:CreateDropdown({
+    Name = "Price Mode",
+    Options = { "Fixed", "Undercut" },
+    CurrentOption = "Fixed",
+    AllowNone = false,
+    Flag = "PriceMode",
+})
+
+Elements:CreateSlider({
+    Name = "Undercut %",
+    Range = { 1, 50 },
+    Increment = 1,
+    Suffix = "%",
+    CurrentValue = 5,
+    Flag = "UndercutPercent",
+    DependsOn = { Flag = "PriceMode", Value = "Undercut" }, -- only shown in Undercut mode
+})
+
+Elements:CreateToggle({ Name = "Auto Bid", CurrentValue = false, Flag = "AutoBid" })
+
+Elements:CreateSlider({
+    Name = "Max Bid",
+    Range = { 100, 10000 },
+    Increment = 100,
+    CurrentValue = 1000,
+    Flag = "MaxBid",
+    DependsOn = "AutoBid",
+    DependsMode = "Disable", -- dimmed instead of hidden while Auto Bid is off
+})
+
+Elements:CreateButton({
+    Name = "Clear All Rules",
+    Icon = "trash-2",
+    Confirm = true, -- first click arms it, the second runs it
+    Callback = function()
+        Rules:SetRows({})
+        Activity:Push("Cleared every price rule", "Warning")
+    end,
+})
+
+Elements:CreateButton({
+    Name = "Spend 1,000 Gold",
+    Icon = "coins",
+    HoldToConfirm = 1.5, -- seconds to hold
+    Callback = function()
+        Activity:Push("Spent 1,000 gold", "Accent")
+    end,
+})
 
 --------------------------------------------------------------------------------
 -- Popups

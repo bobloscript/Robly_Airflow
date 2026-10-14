@@ -2,7 +2,7 @@
 
 > Airflow UI is a single-file Luau UI library for Roblox executor scripts: a window with a sidebar of tabs, sub tabs, two-column collapsible groupboxes and fourteen elements (toggles, sliders, dropdowns, statuses, tables and more), plus configs, cloud configs, live themes, coloured text, window-wide search and a draggable Dynamic Island minimize. This file is a guide for language models writing scripts with it. Follow it exactly; the README holds every option.
 
-Load it once, build the window, add tabs, put groupboxes on tabs (or sub tabs), and put elements in groupboxes. Every element with a `Flag` is saved by configs. Everything returns a handle with `Set` / `Get` (where it has a value), `SetVisible`, `IsVisible`, `SetTooltip` and `Destroy`.
+Load it once, build the window, add tabs, put groupboxes on tabs (or sub tabs), and put elements in groupboxes. Every element with a `Flag` is saved by configs. Everything returns a handle with `Set` / `Get` (where it has a value), `SetVisible`, `IsVisible`, `SetDisabled`, `SetDependsOn`, `SetTooltip` and `Destroy`.
 
 ## Files
 
@@ -74,16 +74,16 @@ Window:LoadAutoload()                      -- apply the player's autoload config
 
 ## Elements
 
-Every element takes `Name`, `Desc` (a muted hint under the name), `Tooltip` (a string or `{ Title, Text, Icon }`) and `Visible`.
+Every element takes `Name`, `Desc` (a muted hint under the name), `Tooltip` (a string or `{ Title, Text, Icon }`) `Visible`, `Disabled`, and `DependsOn` (`"Flag"`, `{ Flag, Value, Not }`, a list of rules, or a function) with `DependsMode = "Hide"` (default) or `"Disable"`. Prefer `DependsOn` over toggling visibility in callbacks.
 
 | Constructor | Key options | Handle |
 | --- | --- | --- |
-| `Button` | `Icon`, `Style = "Primary"`, `Callback()` | `SetText(text)` |
+| `Button` | `Icon`, `Style = "Primary"`, `Confirm` (true or text: click twice), `ConfirmTimeout`, `HoldToConfirm` (true or seconds), `Callback()` | `SetText(text)`, `Disarm()` |
 | `ButtonRow` | list of `{ Name, Callback, Style }` (`"Primary"` / `"Danger"`) | `SetText(i, text)`, `.Buttons` |
 | `Toggle` | `CurrentValue`, `Flag`, `Callback(bool)` | `.Value`, `Set`, `Get` |
 | `Slider` | `Range = { min, max }`, `Increment`, `Suffix`, `CurrentValue`, `Flag`, `Callback(n)`, `OnRelease(n)` | `.Value`, `.Dragging`, `Set`, `Get` |
 | `Stepper` | `Range`, `Increment`, `Suffix`, `CurrentValue`, `Flag`, `Callback(n)` | `.Value`, `Set`, `Get` |
-| `Dropdown` | `Options`, `CurrentOption`, `MultipleOptions`, `AllowNone`, `Searchable`, `MaxRows`, `NoneText`, `Stacked`, `Flag`, `Callback(value or list)` | `Set`, `Get`, `Refresh(options, keepSelection?, skipCallback?)`, `SetOpen`, `.Open` |
+| `Dropdown` | `Options`, `CurrentOption`, `MultipleOptions`, `AllowNone`, `Searchable`, `MaxRows`, `NoneText`, `Stacked`, `Flag`, `Callback(value or list)` | `Set`, `Get`, `SetOptions(options, { KeepSelection = true, Silent = false })`, `GetOptions`, `Refresh(options, keepSelection?, skipCallback?)`, `SetOpen`, `.Open` |
 | `OrderList` | `Items`, `MaxRows`, `Numbered`, `Arrows`, `Flag`, `Callback(order)` | `.Value`, `Set(order)`, `Refresh(items)`, `Get` |
 | `Input` | `PlaceholderText`, `CurrentValue`, `Numeric`, `Icon`, `Flag`, `Callback(text, enterPressed)` | `Set`, `Get` |
 | `Keybind` | `CurrentKeybind` (`"F"` or `Enum.KeyCode.F`), `Flag`, `Callback(key)`, `OnChanged(key)` | `.Value`, `.Listening`, `Set`, `Get` |
@@ -96,7 +96,8 @@ Every element takes `Name`, `Desc` (a muted hint under the name), `Tooltip` (a s
 | `Statuses` | `(entries, shared)`: names or option tables | table of status handles by name |
 | `StatusList` | `Rows`, `MaxRows`, `EmptyText`, `Update` returning rows | `Set(rows)`, `Get`, `Clear`, `SetName` |
 | `Progress` | `CurrentValue` 0..1, `Color`, `TextColor`, `Format(fraction)` | `Set`, `Get`, `SetColor`, `SetTextColor` |
-| `Table` | `Columns` (names or `{ Name, Key, Width, Align, Format, Color, Sortable }`), `Rows`, `Rank`, `SortBy`, `MaxRows`, `Search` (built-in search box, default on), `Highlight(row)`, `Callback(row, i)` | `SetRows`, `AddRow`, `UpdateRow`, `RemoveRow`, `Clear`, `Sort`, `SetColumns`, `SetSearch(text)` |
+| `Table` | `Columns` (names or `{ Name, Key, Width, Align, Format, Color, Sortable }`), `Rows`, `Rank`, `SortBy`, `MaxRows`, `Search` (built-in search box, default on), `Highlight(row)`, `Callback(row, i)`. Editable: give columns a `Type` (`Text`, `Number`, `Toggle`, `Dropdown` with `Options`), plus `OnChanged(rows)`, `NewRow`, `AllowAdd`, `AllowRemove`, `Flag` | `SetRows`, `AddRow`, `UpdateRow`, `RemoveRow`, `Clear`, `Sort`, `SetColumns`, `SetSearch(text)`, `Get` |
+| `Log` (also `Feed`) | `MaxEntries` (default 100), `MaxRows` (lines shown), `Timestamps`, `TimeFormat`, `EmptyText` | `Push(text, color?)`, `Clear`, `Get`, `SetMaxEntries`, `SetTitle` |
 | `Image` | `Image` (asset id, link, file, preset or `"Avatar"`), `Height`, `Caption`, `ScaleType` | `SetImage`, `SetCaption`, `SetTitle` |
 | `Viewport` | `Model` (Instance, `"Avatar"`, Player or function), `Height`, `SpinSpeed` | `SetModel`, `Refresh`, `SetSpin` |
 

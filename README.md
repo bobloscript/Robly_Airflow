@@ -196,7 +196,7 @@ The sidebar is an inset rounded rail: the logo on top, then one tile per tab wit
 | `Toggle(open?)` | Show, hide, or flip. Restores the window when minimized. |
 | `Minimize()` / `Restore()` / `SetMinimized(bool)` | Fold into the island and back. |
 | `.Minimized` / `.Island` | Whether it's minimized, and the island itself (also `.MiniBar`). |
-| `GetMinimizeOnStart()` / `SetMinimizeOnStart(bool)` | "Minimize UI on Start": saved with the config settings; when on, the window folds into the island once right after it opens. `Tab:CreateMinimizeOnStart(opts?)` adds the built-in toggle (the demo puts it in the Settings tab's **Menu** groupbox). |
+| `GetMinimizeOnStart()` / `SetMinimizeOnStart(bool)` | "Minimize UI on Start": saved with the config settings; when on, the window folds into the island once right after it opens. `Tab:CreateMinimizeOnStart(opts?)` adds the toggle by hand; any groupbox named **Menu** gets it automatically, above its first button. |
 | `SetIslandDraggable(enabled)` / `ResetIslandPosition()` | Lock the island in place, or send it back to the top centre and forget the saved spot. |
 | `SetAdaptiveSize(enabled)` / `GetAdaptiveSize()` | Turn resolution scaling on or off. Eases to the new size. |
 | `SetSize(Vector2, instant?)` / `GetSize()` | Resize to an exact size in pixels, kept within `MinSize` and `MaxSize`. Configs save and load it. |

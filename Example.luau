@@ -8481,6 +8481,39 @@ function Tab:Groupbox(opts, icon)
         _items = {},
     }, Tab)
     table.insert(self._groupboxes, group)
+    -- A groupbox named "Menu" gets the built-in "Minimize UI on Start" toggle,
+    -- so existing scripts pick it up without calling CreateMinimizeOnStart.
+    -- It lands above the first button (usually Unload), or at the end.
+    if type(group.Name) == "string" and string.lower(group.Name:match("^%s*(.-)%s*$")) == "menu" then
+        task.defer(function()
+            if window._destroyed or window._minimizeOnStartToggle or not box.Parent then
+                return
+            end
+            local toggle = group:CreateMinimizeOnStart()
+            local frame = toggle and toggle._frame
+            if not frame then
+                return
+            end
+            local before
+            for _, element in ipairs(group._items) do
+                local other = element._frame
+                if element._type == "Button" and other and other.Parent == frame.Parent
+                    and (not before or other.LayoutOrder < before.LayoutOrder) then
+                    before = other
+                end
+            end
+            if before then
+                local order = before.LayoutOrder
+                for _, child in ipairs(frame.Parent:GetChildren()) do
+                    if child:IsA("GuiObject") and child ~= frame and child.LayoutOrder >= order then
+                        child.LayoutOrder += 1
+                    end
+                end
+                frame.LayoutOrder = order
+                group._order += 1
+            end
+        end)
+    end
 
     local collapsed = false
     local generation = 0
@@ -8969,13 +9002,17 @@ end
 function Tab:CreateMinimizeOnStart(opts)
     opts = opts or {}
     local window = self.Window
-    return self:CreateToggle({
+    if window._minimizeOnStartToggle then
+        return window._minimizeOnStartToggle
+    end
+    window._minimizeOnStartToggle = self:CreateToggle({
         Name = opts.Name or "Minimize UI on Start",
         CurrentValue = window:GetMinimizeOnStart(),
         Callback = function(value)
             window:SetMinimizeOnStart(value)
         end,
     })
+    return window._minimizeOnStartToggle
 end
 
 Tab.CreateGroupbox = Tab.Groupbox

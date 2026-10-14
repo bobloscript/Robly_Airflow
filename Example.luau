@@ -20472,9 +20472,9 @@ end
 
 local Settings = Window:CreateTab({ Name = "Settings", Icon = "settings" })
 
-local Interface = Settings:AddLeftGroupbox({ Name = "Menu", Icon = "monitor" })
+local Menu = Settings:AddLeftGroupbox({ Name = "Menu", Icon = "monitor" })
 
-Interface:CreateKeybind({
+Menu:CreateKeybind({
     Name = "Toggle UI",
     CurrentKeybind = "RightControl",
     OnChanged = function(Key)
@@ -20482,9 +20482,9 @@ Interface:CreateKeybind({
     end,
 })
 
-Interface:CreateMinimizeOnStart()
+Menu:CreateMinimizeOnStart()
 
-Interface:CreateDropdown({
+Menu:CreateDropdown({
     Name = "Toggle Button",
     Options = { "Mobile only", "Mobile & PC" },
     CurrentOption = "Mobile only",
@@ -20495,7 +20495,7 @@ Interface:CreateDropdown({
     end,
 })
 
-Interface:CreateToggle({
+Menu:CreateToggle({
     Name = "Backdrop",
     CurrentValue = true,
     Flag = "Backdrop",
@@ -20504,7 +20504,7 @@ Interface:CreateToggle({
     end,
 })
 
-Interface:CreateSlider({
+Menu:CreateSlider({
     Name = "Backdrop Tint",
     Range = { 0, 90 },
     Increment = 5,
@@ -20516,7 +20516,7 @@ Interface:CreateSlider({
     end,
 })
 
-Interface:CreateButton({
+Menu:CreateButton({
     Name = "Unload",
     Icon = "power",
     Callback = function()

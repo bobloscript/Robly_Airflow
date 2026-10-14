@@ -5643,6 +5643,15 @@ function Window:_playIntro(morph)
             self:_buildMiniBar()
         end
     end)
+    -- "Minimize UI on Start": fold into the island once, right after the
+    -- first intro of this execution.
+    if self:GetMinimizeOnStart() then
+        task.delay(0.6, function()
+            if not self._destroyed and self.Open and not self.Minimized then
+                self:Minimize()
+            end
+        end)
+    end
     local root, shadow, scale = self.Root, self.Shadow, self.Scale
     if self.CurrentTab then
         self:_revealCards(self.CurrentTab, morph and 0.15 or 0.25)
@@ -7483,6 +7492,16 @@ function Window:SetAutoloadMode(mode)
     return true
 end
 
+-- Minimize UI on Start: kept with the config settings so it applies on the
+-- next execution no matter which config loads.
+function Window:GetMinimizeOnStart()
+    return self:_readConfigSettings().MinimizeOnStart == true
+end
+
+function Window:SetMinimizeOnStart(enabled)
+    return self:_writeConfigSettings({ MinimizeOnStart = enabled == true })
+end
+
 function Window:LoadAutoload(silent)
     if self._autoloaded then
         return false, "autoload already ran"
@@ -8944,6 +8963,19 @@ local function sideGroupbox(side)
         opts.Side = side
         return self:Groupbox(opts, icon)
     end
+end
+
+-- Built-in "Minimize UI on Start" toggle; not a config flag, it saves itself.
+function Tab:CreateMinimizeOnStart(opts)
+    opts = opts or {}
+    local window = self.Window
+    return self:CreateToggle({
+        Name = opts.Name or "Minimize UI on Start",
+        CurrentValue = window:GetMinimizeOnStart(),
+        Callback = function(value)
+            window:SetMinimizeOnStart(value)
+        end,
+    })
 end
 
 Tab.CreateGroupbox = Tab.Groupbox
@@ -20440,7 +20472,7 @@ end
 
 local Settings = Window:CreateTab({ Name = "Settings", Icon = "settings" })
 
-local Interface = Settings:AddLeftGroupbox({ Name = "Interface", Icon = "monitor" })
+local Interface = Settings:AddLeftGroupbox({ Name = "Menu", Icon = "monitor" })
 
 Interface:CreateKeybind({
     Name = "Toggle UI",
@@ -20449,6 +20481,8 @@ Interface:CreateKeybind({
         Window:SetKeybind(Key)
     end,
 })
+
+Interface:CreateMinimizeOnStart()
 
 Interface:CreateDropdown({
     Name = "Toggle Button",

@@ -2213,11 +2213,6 @@ function Tab:Dropdown(opts)
         CanvasSize = UDim2.new(),
         Parent = inner,
     })
-    create("UIListLayout", {
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 2),
-        Parent = list,
-    })
     local noResults = label({
         Size = UDim2.new(1, 0, 0, ROW),
         Text = opts.NoResultsText or "No results",
@@ -2232,11 +2227,25 @@ function Tab:Dropdown(opts)
 
     local self_ = { Open = false }
     local selected = {}
-    local optionButtons = {}
     local filter = ""
+    -- The list is virtual: only the rows in view exist, and they are reused
+    -- as it scrolls, so thousands of options cost the same as a handful.
+    local pool = {}
+    local shown = {}
+    local lowerKeys = {}
+    local STEP = ROW + 2
+
+    local function lowerOf(option)
+        local key = lowerKeys[option]
+        if key == nil then
+            key = string.lower(tostring(option))
+            lowerKeys[option] = key
+        end
+        return key
+    end
 
     local function matches(option)
-        return filter == "" or string.find(string.lower(tostring(option)), filter, 1, true) ~= nil
+        return filter == "" or string.find(lowerOf(option), filter, 1, true) ~= nil
     end
 
     -- Option labels are rich text, so the part matching the search can light up.
@@ -2335,19 +2344,17 @@ function Tab:Dropdown(opts)
         -- A picked value reads in full colour; "None" stays muted.
         local picked = #options > 0 and (if multi then #value > 0 else value ~= nil)
         tween(valueLabel, { TextColor3 = picked and Theme.Text or Theme.Muted }, animate and 0.15 or 0)
-        for _, button in pairs(optionButtons) do
-            paintOption(button, animate)
+        for _, button in ipairs(pool) do
+            if button.Option ~= nil then
+                paintOption(button, animate)
+            end
         end
     end
 
+    local renderRows
+
     local function visibleCount()
-        local count = 0
-        for _, option in ipairs(options) do
-            if matches(option) then
-                count += 1
-            end
-        end
-        return count
+        return #shown
     end
 
     local searchShown = true
@@ -2384,6 +2391,7 @@ function Tab:Dropdown(opts)
         end
         list.Position = UDim2.fromOffset(0, top)
         list.Size = UDim2.new(1, 0, 0, listHeight)
+        renderRows()
         local width = math.max(math.floor(chip.AbsoluteSize.X / scale), opts.PopupWidth or 210)
         local bodyWidth = host.AbsoluteSize.X / scale
         width = math.min(width, math.max(bodyWidth - 16, 120))
@@ -2400,13 +2408,17 @@ function Tab:Dropdown(opts)
     end
 
     local function applyFilter()
-        for option, button in pairs(optionButtons) do
-            local shown = matches(option)
-            button.Frame.Visible = shown
-            if shown then
-                button.Label.Text = optionText(option)
+        if filter == "" then
+            shown = options
+        else
+            shown = {}
+            for _, option in ipairs(options) do
+                if matches(option) then
+                    table.insert(shown, option)
+                end
             end
         end
+        renderRows()
     end
 
     local scroller = nil
@@ -2459,11 +2471,9 @@ function Tab:Dropdown(opts)
         if value == nil then
             return
         end
-        for index, option in ipairs(options) do
-            if option == value then
-                list.CanvasPosition = Vector2.new(0, math.max(0, (index - 2) * (ROW + 2)))
-                return
-            end
+        local index = table.find(shown, value)
+        if index then
+            list.CanvasPosition = Vector2.new(0, math.max(0, (index - 2) * STEP))
         end
     end
     local function setOpen(open)
@@ -2541,136 +2551,166 @@ function Tab:Dropdown(opts)
         safeCall(opts.Callback, currentValue())
     end
 
-    local function buildOptions()
-        local keep = {}
-        for index, option in ipairs(options) do
-            keep[option] = index
-        end
-        for option, button in pairs(optionButtons) do
-            if not keep[option] then
-                button.Frame:Destroy()
-                optionButtons[option] = nil
-            end
-        end
-        for index, option in ipairs(options) do
-            local existing = optionButtons[option]
-            if existing then
-                existing.Frame.LayoutOrder = index
-                continue
-            end
-            local row = create("TextButton", {
-                Size = UDim2.new(1, -6, 0, ROW),
-                BackgroundColor3 = Theme.Surface3,
-                BackgroundTransparency = 1,
+    local function newEntry()
+        local row = create("TextButton", {
+            Size = UDim2.new(1, -6, 0, ROW),
+            BackgroundColor3 = Theme.Surface3,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Text = "",
+            AutoButtonColor = false,
+            Visible = false,
+            Parent = list,
+        })
+        corner(row, UDim.new(0, 7))
+        -- Multi selection ticks a checkbox on the left. A single pick
+        -- gets an accent bar on the left edge and a check on the right.
+        local box, boxStroke, bar, check
+        if multi then
+            box = create("Frame", {
+                AnchorPoint = Vector2.new(0, 0.5),
+                Position = UDim2.new(0, 8, 0.5, 0),
+                Size = UDim2.fromOffset(18, 18),
+                BackgroundColor3 = Theme.Surface2,
                 BorderSizePixel = 0,
-                Text = "",
-                AutoButtonColor = false,
-                LayoutOrder = index,
-                Parent = list,
-            })
-            corner(row, UDim.new(0, 7))
-            -- Multi selection ticks a checkbox on the left. A single pick
-            -- gets an accent bar on the left edge and a check on the right.
-            local box, boxStroke, bar, check
-            if multi then
-                box = create("Frame", {
-                    AnchorPoint = Vector2.new(0, 0.5),
-                    Position = UDim2.new(0, 8, 0.5, 0),
-                    Size = UDim2.fromOffset(18, 18),
-                    BackgroundColor3 = Theme.Surface2,
-                    BorderSizePixel = 0,
-                    Parent = row,
-                })
-                corner(box, UDim.new(0, 5))
-                boxStroke = stroke(box, Theme.Stroke)
-                check = create("ImageLabel", {
-                    AnchorPoint = Vector2.new(0.5, 0.5),
-                    Position = UDim2.fromScale(0.5, 0.5),
-                    Size = UDim2.fromOffset(12, 12),
-                    BackgroundTransparency = 1,
-                    ImageColor3 = Theme.AccentDark,
-                    ImageTransparency = 1,
-                    ScaleType = Enum.ScaleType.Fit,
-                    Parent = box,
-                })
-            else
-                bar = create("Frame", {
-                    AnchorPoint = Vector2.new(0, 0.5),
-                    Position = UDim2.new(0, 3, 0.5, 0),
-                    Size = UDim2.fromOffset(3, 4),
-                    BackgroundColor3 = Theme.Accent,
-                    BackgroundTransparency = 1,
-                    BorderSizePixel = 0,
-                    Parent = row,
-                })
-                corner(bar, UDim.new(1, 0))
-                check = create("ImageLabel", {
-                    AnchorPoint = Vector2.new(1, 0.5),
-                    Position = UDim2.new(1, -10, 0.5, 0),
-                    Size = UDim2.fromOffset(14, 14),
-                    BackgroundTransparency = 1,
-                    ImageColor3 = Theme.Accent,
-                    ImageTransparency = 1,
-                    ScaleType = Enum.ScaleType.Fit,
-                    Parent = row,
-                })
-            end
-            applyIcon(check, "check")
-            local checkScale = create("UIScale", { Parent = check })
-            local text_ = label({
-                Position = UDim2.fromOffset(multi and 36 or 14, 0),
-                Size = UDim2.new(1, multi and -44 or -46, 1, 0),
-                Text = optionText(option),
-                TextSize = 13,
-                TextColor3 = Theme.Muted,
-                RichText = true,
                 Parent = row,
             })
-            local entry = { Option = option, Frame = row, Box = box, BoxStroke = boxStroke, Bar = bar, Check = check, CheckScale = checkScale, Label = text_, On = nil, Hover = false }
-            local isTap = tapGuard(row, function()
-                return list
-            end)
-            row.MouseEnter:Connect(function()
-                -- Touch fires enter without a matching leave; skip the hover.
-                if usingTouch() then
-                    return
-                end
-                entry.Hover = true
-                restRow(entry, 0.15)
-                if boxStroke and not selected[option] then
-                    tween(boxStroke, { Color = Theme.StrokeHover }, 0.15)
-                end
-            end)
-            row.MouseLeave:Connect(function()
-                entry.Hover = false
-                restRow(entry, 0.25)
-                if boxStroke and not selected[option] then
-                    tween(boxStroke, { Color = Theme.Stroke }, 0.25)
-                end
-            end)
-            row.MouseButton1Click:Connect(function()
-                if not isTap() then
-                    return
-                end
-                if selected[option] then
-                    if not multi and opts.AllowNone == false then
-                        setOpen(false)
-                        return
-                    end
-                    selected[option] = nil
-                else
-                    if not multi then
-                        selected = {}
-                    end
-                    selected[option] = true
-                end
-                commit()
-                if not multi then
+            corner(box, UDim.new(0, 5))
+            boxStroke = stroke(box, Theme.Stroke)
+            check = create("ImageLabel", {
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.5, 0.5),
+                Size = UDim2.fromOffset(12, 12),
+                BackgroundTransparency = 1,
+                ImageColor3 = Theme.AccentDark,
+                ImageTransparency = 1,
+                ScaleType = Enum.ScaleType.Fit,
+                Parent = box,
+            })
+        else
+            bar = create("Frame", {
+                AnchorPoint = Vector2.new(0, 0.5),
+                Position = UDim2.new(0, 3, 0.5, 0),
+                Size = UDim2.fromOffset(3, 4),
+                BackgroundColor3 = Theme.Accent,
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                Parent = row,
+            })
+            corner(bar, UDim.new(1, 0))
+            check = create("ImageLabel", {
+                AnchorPoint = Vector2.new(1, 0.5),
+                Position = UDim2.new(1, -10, 0.5, 0),
+                Size = UDim2.fromOffset(14, 14),
+                BackgroundTransparency = 1,
+                ImageColor3 = Theme.Accent,
+                ImageTransparency = 1,
+                ScaleType = Enum.ScaleType.Fit,
+                Parent = row,
+            })
+        end
+        applyIcon(check, "check")
+        local checkScale = create("UIScale", { Parent = check })
+        local text_ = label({
+            Position = UDim2.fromOffset(multi and 36 or 14, 0),
+            Size = UDim2.new(1, multi and -44 or -46, 1, 0),
+            Text = "",
+            TextSize = 13,
+            TextColor3 = Theme.Muted,
+            RichText = true,
+            Parent = row,
+        })
+        local entry = { Option = nil, Frame = row, Box = box, BoxStroke = boxStroke, Bar = bar, Check = check, CheckScale = checkScale, Label = text_, On = nil, Hover = false }
+        local isTap = tapGuard(row, function()
+            return list
+        end)
+        row.MouseEnter:Connect(function()
+            -- Touch fires enter without a matching leave; skip the hover.
+            if usingTouch() then
+                return
+            end
+            entry.Hover = true
+            restRow(entry, 0.15)
+            if boxStroke and not selected[entry.Option] then
+                tween(boxStroke, { Color = Theme.StrokeHover }, 0.15)
+            end
+        end)
+        row.MouseLeave:Connect(function()
+            entry.Hover = false
+            restRow(entry, 0.25)
+            if boxStroke and not selected[entry.Option] then
+                tween(boxStroke, { Color = Theme.Stroke }, 0.25)
+            end
+        end)
+        row.MouseButton1Click:Connect(function()
+            local option = entry.Option
+            if option == nil or not isTap() then
+                return
+            end
+            if selected[option] then
+                if not multi and opts.AllowNone == false then
                     setOpen(false)
+                    return
                 end
-            end)
-            optionButtons[option] = entry
-            paintOption(entry, false)
+                selected[option] = nil
+            else
+                if not multi then
+                    selected = {}
+                end
+                selected[option] = true
+            end
+            commit()
+            if not multi then
+                setOpen(false)
+            end
+        end)
+        return entry
+    end
+
+    -- Binds the pool to the rows in view: row i of the filtered list sits at
+    -- (i - 1) * STEP in the canvas.
+    renderRows = function()
+        if not self_.Open then
+            return
+        end
+        local first = math.max(math.floor(list.CanvasPosition.Y / STEP), 0) + 1
+        local count = math.ceil(list.Size.Y.Offset / STEP) + 1
+        for slot = 1, math.max(count, #pool) do
+            local index = first + slot - 1
+            local option = slot <= count and shown[index] or nil
+            local entry = pool[slot]
+            if option == nil then
+                if entry then
+                    entry.Frame.Visible = false
+                    entry.Option = nil
+                end
+            else
+                if not entry then
+                    entry = newEntry()
+                    pool[slot] = entry
+                end
+                entry.Frame.Position = UDim2.fromOffset(0, (index - 1) * STEP)
+                local text = optionText(option)
+                local fresh = entry.Option ~= option
+                if fresh or entry.Text ~= text then
+                    entry.Text = text
+                    entry.Label.Text = text
+                end
+                if fresh then
+                    entry.Option = option
+                    entry.On = nil
+                    paintOption(entry, false)
+                end
+                entry.Frame.Visible = true
+            end
+        end
+    end
+    list:GetPropertyChangedSignal("CanvasPosition"):Connect(renderRows)
+
+    local function buildOptions()
+        table.clear(lowerKeys)
+        for _, entry in ipairs(pool) do
+            entry.Option = nil
         end
         applyFilter()
         if self_.Open then
@@ -2679,10 +2719,8 @@ function Tab:Dropdown(opts)
     end
 
     selectAll.MouseButton1Click:Connect(function()
-        for _, option in ipairs(options) do
-            if matches(option) then
-                selected[option] = true
-            end
+        for _, option in ipairs(shown) do
+            selected[option] = true
         end
         commit()
     end)
@@ -2813,6 +2851,7 @@ function Tab:Dropdown(opts)
     end)
     searchBox:GetPropertyChangedSignal("Text"):Connect(function()
         filter = string.lower(searchBox.Text)
+        list.CanvasPosition = Vector2.zero
         applyFilter()
         if self_.Open then
             layoutPopup(false)
@@ -11811,7 +11850,9 @@ function Tab:Table(opts)
 
     -- One option list per table, opened under a dropdown cell.
     local picker, pickerList, pickerAnchor, pickerSearch, pickerSearchHolder, pickerEmpty
-    local pickerButtons, pickerFit, pickerPick = {}, nil, nil
+    -- The option list is virtual like the dropdown's: a small pool of
+    -- buttons is rebound to whichever options are in view.
+    local pickerPool, pickerShown, pickerFit, pickerPick, pickerRender = {}, {}, nil, nil, nil
     local function closePicker()
         if picker then
             picker.Visible = false
@@ -11897,13 +11938,8 @@ function Tab:Table(opts)
                 tween(searchStroke, { Color = Theme.Stroke }, 0.2)
                 tween(searchIcon, { ImageColor3 = Theme.Muted }, 0.2)
                 -- Enter picks the first match.
-                if enterPressed and picker.Visible and pickerPick then
-                    for _, item in ipairs(pickerButtons) do
-                        if item.Button.Visible then
-                            pickerPick(item.Option)
-                            break
-                        end
-                    end
+                if enterPressed and picker.Visible and pickerPick and pickerShown[1] ~= nil then
+                    pickerPick(pickerShown[1])
                 end
             end)
             pickerSearch:GetPropertyChangedSignal("Text"):Connect(function()
@@ -11929,17 +11965,16 @@ function Tab:Table(opts)
                 ScrollBarThickness = 2,
                 ScrollBarImageColor3 = Theme.Accent,
                 ScrollingDirection = Enum.ScrollingDirection.Y,
-                AutomaticCanvasSize = Enum.AutomaticSize.Y,
                 CanvasSize = UDim2.new(),
                 ZIndex = 45,
                 Parent = picker,
             })
             padding(pickerList, 4, 4, 4, 4)
-            create("UIListLayout", {
-                SortOrder = Enum.SortOrder.LayoutOrder,
-                Padding = UDim.new(0, 2),
-                Parent = pickerList,
-            })
+            pickerList:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+                if pickerRender and picker.Visible then
+                    pickerRender()
+                end
+            end)
             window:_listen("Began", function(input)
                 if not picker.Visible then
                     return
@@ -11952,12 +11987,6 @@ function Tab:Table(opts)
             end, handle)
             window:_listen("Render", placePicker, handle)
         end
-        for _, child in ipairs(pickerList:GetChildren()) do
-            if child:IsA("GuiButton") then
-                child:Destroy()
-            end
-        end
-        table.clear(pickerButtons)
         pickerPick = function(option)
             closePicker()
             if columnValue(row, column) ~= option then
@@ -11973,41 +12002,8 @@ function Tab:Table(opts)
         options = type(options) == "table" and options or {}
         local current = columnValue(row, column)
         local itemHeight = TOUCH and 28 or 24
-        for order, option in ipairs(options) do
-            local selected = option == current
-            local button = create("TextButton", {
-                Size = UDim2.new(1, 0, 0, itemHeight),
-                BackgroundColor3 = Theme.Surface3,
-                BackgroundTransparency = selected and 0.4 or 1,
-                BorderSizePixel = 0,
-                AutoButtonColor = false,
-                Text = "",
-                LayoutOrder = order,
-                ZIndex = 46,
-                Parent = pickerList,
-            })
-            corner(button, UDim.new(0, 4))
-            label({
-                Position = UDim2.fromOffset(8, 0),
-                Size = UDim2.new(1, -16, 1, 0),
-                Text = tostring(option),
-                TextSize = 12,
-                FontFace = Fonts.Regular,
-                TextColor3 = selected and Theme.Accent or Theme.Text,
-                ZIndex = 47,
-                Parent = button,
-            })
-            button.MouseEnter:Connect(function()
-                tween(button, { BackgroundTransparency = 0.25 }, 0.1)
-            end)
-            button.MouseLeave:Connect(function()
-                tween(button, { BackgroundTransparency = selected and 0.4 or 1 }, 0.2)
-            end)
-            button.MouseButton1Click:Connect(function()
-                pickerPick(option)
-            end)
-            table.insert(pickerButtons, { Button = button, Option = option, Key = string.lower(tostring(option)) })
-        end
+        local step = itemHeight + 2
+        local keys = {}
         -- Searchable = true always shows the search row; SearchAfter = n shows
         -- it once there are more than n options.
         local searchable = column.Searchable == true
@@ -12019,22 +12015,104 @@ function Tab:Table(opts)
         local scale = math.max(window.Scale.Scale, 0.01)
         local width = math.max(anchor.AbsoluteSize.X / scale, searchable and 160 or 120)
         local maxShown = math.max(math.floor(tonumber(column.MaxRows) or 6), 1)
-        pickerFit = function()
-            local query = string.lower(trim(pickerSearch.Text))
-            local count = 0
-            for _, item in ipairs(pickerButtons) do
-                local match = query == "" or string.find(item.Key, query, 1, true) ~= nil
-                item.Button.Visible = match
-                if match then
-                    count += 1
+
+        local function poolEntry()
+            local entry = {}
+            local button = create("TextButton", {
+                Size = UDim2.new(1, 0, 0, itemHeight),
+                BackgroundColor3 = Theme.Surface3,
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                Text = "",
+                ZIndex = 46,
+                Visible = false,
+                Parent = pickerList,
+            })
+            corner(button, UDim.new(0, 4))
+            entry.Button = button
+            entry.Label = label({
+                Position = UDim2.fromOffset(8, 0),
+                Size = UDim2.new(1, -16, 1, 0),
+                TextSize = 12,
+                FontFace = Fonts.Regular,
+                ZIndex = 47,
+                Parent = button,
+            })
+            button.MouseEnter:Connect(function()
+                tween(button, { BackgroundTransparency = 0.25 }, 0.1)
+            end)
+            button.MouseLeave:Connect(function()
+                tween(button, { BackgroundTransparency = entry.Selected and 0.4 or 1 }, 0.2)
+            end)
+            button.MouseButton1Click:Connect(function()
+                if entry.Option ~= nil and pickerPick then
+                    pickerPick(entry.Option)
+                end
+            end)
+            return entry
+        end
+
+        pickerRender = function()
+            local first = math.max(math.floor(pickerList.CanvasPosition.Y / step), 0) + 1
+            local count = maxShown + 1
+            for slot = 1, math.max(count, #pickerPool) do
+                local index = first + slot - 1
+                local option = slot <= count and pickerShown[index] or nil
+                local entry = pickerPool[slot]
+                if option == nil then
+                    if entry then
+                        entry.Button.Visible = false
+                        entry.Option = nil
+                    end
+                else
+                    if not entry then
+                        entry = poolEntry()
+                        pickerPool[slot] = entry
+                    end
+                    entry.Button.Position = UDim2.fromOffset(0, (index - 1) * step)
+                    if entry.Option ~= option then
+                        local selected = option == current
+                        entry.Option = option
+                        entry.Selected = selected
+                        entry.Label.Text = tostring(option)
+                        entry.Label.TextColor3 = selected and Theme.Accent or Theme.Text
+                        entry.Button.BackgroundTransparency = selected and 0.4 or 1
+                    end
+                    entry.Button.Visible = true
                 end
             end
+        end
+
+        pickerFit = function()
+            local query = string.lower(trim(pickerSearch.Text))
+            if query == "" then
+                pickerShown = options
+            else
+                pickerShown = {}
+                for _, option in ipairs(options) do
+                    local key = keys[option]
+                    if key == nil then
+                        key = string.lower(tostring(option))
+                        keys[option] = key
+                    end
+                    if string.find(key, query, 1, true) then
+                        table.insert(pickerShown, option)
+                    end
+                end
+            end
+            local count = #pickerShown
             pickerEmpty.Visible = count == 0
             pickerEmpty.Position = UDim2.fromOffset(0, searchHeight + 4)
             pickerList.Position = UDim2.fromOffset(0, searchHeight)
             pickerList.Size = UDim2.new(1, 0, 1, -searchHeight)
+            pickerList.CanvasSize = UDim2.fromOffset(0, math.max(count * step - 2, 0) + 8)
             pickerList.CanvasPosition = Vector2.zero
-            picker.Size = UDim2.fromOffset(width, searchHeight + math.clamp(count, 1, maxShown) * (itemHeight + 2) + 6)
+            picker.Size = UDim2.fromOffset(width, searchHeight + math.clamp(count, 1, maxShown) * step + 6)
+            for _, entry in ipairs(pickerPool) do
+                entry.Option = nil
+            end
+            pickerRender()
         end
         pickerFit()
         picker.Parent = window:_popupHost(frame)

@@ -1961,10 +1961,11 @@ function Tab:Dropdown(opts)
     local compact = metrics.Compact
     local chipHeight = metrics.Chip
     local window = self.Window
-    local ROW = TOUCH and 40 or 30
+    local ROW = TOUCH and 34 or 22
     local MAX_ROWS = opts.MaxRows or 6
-    -- Stacked: the chip spans the whole row, with the name (if any) above it.
-    local stacked = compact and opts.Stacked == true
+    -- Stacked (the default in compact rows): the chip spans the whole row,
+    -- with the name (if any) above it.
+    local stacked = compact and opts.Stacked ~= false
     local stackTop = 2
     if stacked then
         stackTop = (opts.Name or "") ~= "" and 20 or 2
@@ -1997,7 +1998,7 @@ function Tab:Dropdown(opts)
         AnchorPoint = stacked and Vector2.zero or Vector2.new(1, 0.5),
         Position = stacked and UDim2.fromOffset(14, stackTop) or UDim2.new(1, compact and -14 or -10, 0.5, 0),
         Size = UDim2.fromOffset(60, chipHeight),
-        BackgroundColor3 = Theme.Surface,
+        BackgroundColor3 = Theme.Background,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Parent = header,
@@ -2125,7 +2126,7 @@ function Tab:Dropdown(opts)
 
     local searchHolder = create("Frame", {
         Size = UDim2.new(1, 0, 0, 32),
-        BackgroundColor3 = Theme.Surface,
+        BackgroundColor3 = Theme.Background,
         BorderSizePixel = 0,
         Parent = inner,
     })
@@ -2204,9 +2205,9 @@ function Tab:Dropdown(opts)
         Size = UDim2.new(1, 0, 0, 100),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        ScrollBarThickness = TOUCH and 4 or 3,
+        ScrollBarThickness = 4,
         ScrollBarImageColor3 = Theme.Accent,
-        ScrollBarImageTransparency = 0.4,
+        ScrollBarImageTransparency = 0,
         ScrollingDirection = Enum.ScrollingDirection.Y,
         -- Sized by hand: AutomaticCanvasSize under the window's UIScale
         -- sometimes leaves the canvas short, so the list would not scroll.
@@ -2234,6 +2235,13 @@ function Tab:Dropdown(opts)
     local shown = {}
     local lowerKeys = {}
     local STEP = ROW + 2
+
+    -- CanvasPosition is in screen pixels while rows are laid out in unscaled
+    -- units, so under a UIScale the visible slice has to be scaled back.
+    local function canvasScale()
+        local logical = list.CanvasSize.Y.Offset
+        return logical > 0 and list.AbsoluteCanvasSize.Y / logical or 1
+    end
 
     local function lowerOf(option)
         local key = lowerKeys[option]
@@ -2290,14 +2298,11 @@ function Tab:Dropdown(opts)
         return nil
     end
 
-    -- A picked row rests on a faint accent tint; hovering lifts either kind.
+    -- Rows are plain text: the pick reads in the accent, hovering lifts any row.
     local function restRow(entry, duration)
         local on, hover = entry.On == true, entry.Hover == true
-        tween(entry.Frame, {
-            BackgroundColor3 = on and Theme.Accent or Theme.Surface3,
-            BackgroundTransparency = on and (hover and 0.8 or 0.88) or (hover and 0.55 or 1),
-        }, duration)
-        tween(entry.Label, { TextColor3 = (on or hover) and Theme.Text or Theme.Muted }, duration)
+        tween(entry.Frame, { BackgroundTransparency = hover and 0.6 or 1 }, duration)
+        tween(entry.Label, { TextColor3 = on and Theme.Accent or Theme.Text }, duration)
     end
 
     local function paintOption(button, animate)
@@ -2314,7 +2319,7 @@ function Tab:Dropdown(opts)
         else
             tween(button.Bar, {
                 BackgroundTransparency = on and 0 or 1,
-                Size = UDim2.fromOffset(3, on and ROW - 14 or 4),
+                Size = UDim2.fromOffset(3, on and ROW - 10 or 4),
             }, animate and 0.3 or 0, Enum.EasingStyle.Quint)
         end
         tween(button.Check, { ImageTransparency = on and 0 or 1 }, duration)
@@ -2436,11 +2441,11 @@ function Tab:Dropdown(opts)
         local chipPosition = (chip.AbsolutePosition - body.AbsolutePosition) / scale
         local chipSize = chip.AbsoluteSize / scale
         local right = math.clamp(chipPosition.X + chipSize.X, targetSize.X + 8, math.max(bodySize.X - 8, targetSize.X + 8))
-        local below = chipPosition.Y + chipSize.Y + 6
+        local below = chipPosition.Y + chipSize.Y + 2
         -- Opening upward pins the content to the bottom edge so it unfolds from the chip.
-        if below + targetSize.Y > bodySize.Y - 8 and chipPosition.Y - 6 - targetSize.Y >= 8 then
+        if below + targetSize.Y > bodySize.Y - 8 and chipPosition.Y - 2 - targetSize.Y >= 8 then
             popup.AnchorPoint = Vector2.new(1, 1)
-            popup.Position = UDim2.fromOffset(right, chipPosition.Y - 6)
+            popup.Position = UDim2.fromOffset(right, chipPosition.Y - 2)
             inner.AnchorPoint = Vector2.new(0, 1)
             inner.Position = UDim2.fromScale(0, 1)
         else
@@ -2473,7 +2478,7 @@ function Tab:Dropdown(opts)
         end
         local index = table.find(shown, value)
         if index then
-            list.CanvasPosition = Vector2.new(0, math.max(0, (index - 2) * STEP))
+            list.CanvasPosition = Vector2.new(0, math.max(0, (index - 2) * STEP) * canvasScale())
         end
     end
     local function setOpen(open)
@@ -2483,7 +2488,7 @@ function Tab:Dropdown(opts)
         self_.Open = open
         arrow:Set(open)
         tween(chipStroke, { Color = open and Theme.Accent or Theme.Stroke, Transparency = open and 0.35 or 0 }, 0.2)
-        tween(chip, { BackgroundColor3 = open and Theme.Surface2 or Theme.Surface }, 0.2)
+        tween(chip, { BackgroundColor3 = open and Theme.Surface or Theme.Background }, 0.2)
         closeGeneration += 1
         if open then
             if window._closePopup and window._closePopup ~= self_._close then
@@ -2564,7 +2569,7 @@ function Tab:Dropdown(opts)
         })
         corner(row, UDim.new(0, 7))
         -- Multi selection ticks a checkbox on the left. A single pick
-        -- gets an accent bar on the left edge and a check on the right.
+        -- gets an accent bar on the left edge.
         local box, boxStroke, bar, check
         if multi then
             box = create("Frame", {
@@ -2590,7 +2595,7 @@ function Tab:Dropdown(opts)
         else
             bar = create("Frame", {
                 AnchorPoint = Vector2.new(0, 0.5),
-                Position = UDim2.new(0, 3, 0.5, 0),
+                Position = UDim2.new(0, 2, 0.5, 0),
                 Size = UDim2.fromOffset(3, 4),
                 BackgroundColor3 = Theme.Accent,
                 BackgroundTransparency = 1,
@@ -2606,6 +2611,7 @@ function Tab:Dropdown(opts)
                 ImageColor3 = Theme.Accent,
                 ImageTransparency = 1,
                 ScaleType = Enum.ScaleType.Fit,
+                Visible = false,
                 Parent = row,
             })
         end
@@ -2616,7 +2622,7 @@ function Tab:Dropdown(opts)
             Size = UDim2.new(1, multi and -44 or -46, 1, 0),
             Text = "",
             TextSize = 13,
-            TextColor3 = Theme.Muted,
+            TextColor3 = Theme.Text,
             RichText = true,
             Parent = row,
         })
@@ -2673,7 +2679,7 @@ function Tab:Dropdown(opts)
         if not self_.Open then
             return
         end
-        local first = math.max(math.floor(list.CanvasPosition.Y / STEP), 0) + 1
+        local first = math.max(math.floor(list.CanvasPosition.Y / canvasScale() / STEP), 0) + 1
         local count = math.ceil(list.Size.Y.Offset / STEP) + 1
         for slot = 1, math.max(count, #pool) do
             local index = first + slot - 1
@@ -2840,13 +2846,13 @@ function Tab:Dropdown(opts)
     header.MouseEnter:Connect(function()
         if not self_.Open and not usingTouch() then
             tween(chipStroke, { Color = Theme.StrokeHover }, 0.15)
-            tween(chip, { BackgroundColor3 = Theme.Surface2 }, 0.15)
+            tween(chip, { BackgroundColor3 = Theme.Surface }, 0.15)
         end
     end)
     header.MouseLeave:Connect(function()
         if not self_.Open then
             tween(chipStroke, { Color = Theme.Stroke }, 0.25)
-            tween(chip, { BackgroundColor3 = Theme.Surface }, 0.25)
+            tween(chip, { BackgroundColor3 = Theme.Background }, 0.25)
         end
     end)
     searchBox:GetPropertyChangedSignal("Text"):Connect(function()
@@ -12054,7 +12060,10 @@ function Tab:Table(opts)
         end
 
         pickerRender = function()
-            local first = math.max(math.floor(pickerList.CanvasPosition.Y / step), 0) + 1
+            -- CanvasPosition is in screen pixels; undo any UIScale first.
+            local logical = pickerList.CanvasSize.Y.Offset
+            local scale = logical > 0 and pickerList.AbsoluteCanvasSize.Y / logical or 1
+            local first = math.max(math.floor(pickerList.CanvasPosition.Y / scale / step), 0) + 1
             local count = maxShown + 1
             for slot = 1, math.max(count, #pickerPool) do
                 local index = first + slot - 1

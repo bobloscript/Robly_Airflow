@@ -1353,6 +1353,7 @@ New rows come from `NewRow` (a table, or a function returning one), else from ea
 | --- | --- | --- | --- |
 | `Columns[i].Type` | string | — | `"Text"`, `"Number"`, `"Toggle"` or `"Dropdown"`. |
 | `Columns[i].Options` / `Min` / `Max` / `Integer` / `Default` / `Placeholder` | — | — | Per-type settings as above. |
+| `Columns[i].Searchable` / `SearchAfter` / `SearchPlaceholder` / `MaxRows` | boolean / number / string / number | — / — / `"Search"` / `6` | Dropdown cells: a search box at the top of the list (`Searchable = true`, or once there are more than `SearchAfter` options) that filters as you type; Enter picks the first match. `MaxRows` is how many options show before the list scrolls. |
 | `OnChanged` | function | — | `function(rows)` after any edit, add or remove, and after `SetRows` unless it's called with `silent = true`. |
 | `NewRow` | table \| function | — | The row the Add button inserts. |
 | `AllowAdd` / `AllowRemove` | boolean | `true` | The Add row button under the table, and the remove column at the end of each row. |

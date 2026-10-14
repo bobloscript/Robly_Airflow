@@ -11810,10 +11810,14 @@ function Tab:Table(opts)
     end
 
     -- One option list per table, opened under a dropdown cell.
-    local picker, pickerList, pickerAnchor
+    local picker, pickerList, pickerAnchor, pickerSearch, pickerSearchHolder, pickerEmpty
+    local pickerButtons, pickerFit, pickerPick = {}, nil, nil
     local function closePicker()
         if picker then
             picker.Visible = false
+            if pickerSearch:IsFocused() then
+                pickerSearch:ReleaseFocus()
+            end
         end
         pickerAnchor = nil
         if window._closePopup == closePicker then
@@ -11854,6 +11858,70 @@ function Tab:Table(opts)
             picker:SetAttribute("NoDrag", true)
             corner(picker, UDim.new(0, 6))
             stroke(picker, Theme.Stroke)
+            -- Search row, shown for Searchable columns.
+            pickerSearchHolder = create("Frame", {
+                Position = UDim2.fromOffset(4, 4),
+                Size = UDim2.new(1, -8, 0, TOUCH and 28 or 24),
+                BackgroundColor3 = Theme.Surface,
+                BorderSizePixel = 0,
+                ZIndex = 46,
+                Visible = false,
+                Parent = picker,
+            })
+            corner(pickerSearchHolder, UDim.new(0, 4))
+            local searchStroke = stroke(pickerSearchHolder)
+            local searchIconHolder, searchIcon = glowIcon(pickerSearchHolder, "search", Theme.Muted, UDim2.new(0, 8, 0.5, 0))
+            searchIconHolder.Size = UDim2.fromOffset(12, 12)
+            searchIconHolder.ZIndex = 47
+            pickerSearch = create("TextBox", {
+                Position = UDim2.fromOffset(26, 0),
+                Size = UDim2.new(1, -32, 1, 0),
+                BackgroundTransparency = 1,
+                Text = "",
+                PlaceholderText = "Search",
+                PlaceholderColor3 = Theme.Muted,
+                TextColor3 = Theme.Text,
+                TextSize = 12,
+                FontFace = Fonts.Regular,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                ClearTextOnFocus = false,
+                ZIndex = 47,
+                Parent = pickerSearchHolder,
+            })
+            pickerSearch.Focused:Connect(function()
+                tween(searchStroke, { Color = Theme.StrokeHover }, 0.15)
+                tween(searchIcon, { ImageColor3 = Theme.Accent }, 0.15)
+            end)
+            pickerSearch.FocusLost:Connect(function(enterPressed)
+                tween(searchStroke, { Color = Theme.Stroke }, 0.2)
+                tween(searchIcon, { ImageColor3 = Theme.Muted }, 0.2)
+                -- Enter picks the first match.
+                if enterPressed and picker.Visible and pickerPick then
+                    for _, item in ipairs(pickerButtons) do
+                        if item.Button.Visible then
+                            pickerPick(item.Option)
+                            break
+                        end
+                    end
+                end
+            end)
+            pickerSearch:GetPropertyChangedSignal("Text"):Connect(function()
+                if pickerFit then
+                    pickerFit()
+                end
+            end)
+            pickerEmpty = label({
+                Size = UDim2.new(1, 0, 0, TOUCH and 28 or 24),
+                Text = "No matches",
+                TextSize = 12,
+                FontFace = Fonts.Regular,
+                TextColor3 = Theme.Muted,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                ZIndex = 47,
+                Visible = false,
+                Parent = picker,
+            })
             pickerList = create("ScrollingFrame", {
                 Size = UDim2.fromScale(1, 1),
                 BackgroundTransparency = 1,
@@ -11887,6 +11955,14 @@ function Tab:Table(opts)
         for _, child in ipairs(pickerList:GetChildren()) do
             if child:IsA("GuiButton") then
                 child:Destroy()
+            end
+        end
+        table.clear(pickerButtons)
+        pickerPick = function(option)
+            closePicker()
+            if columnValue(row, column) ~= option then
+                setCell(row, column, option)
+                handle:_edited()
             end
         end
         local options = column.Options
@@ -11928,22 +12004,51 @@ function Tab:Table(opts)
                 tween(button, { BackgroundTransparency = selected and 0.4 or 1 }, 0.2)
             end)
             button.MouseButton1Click:Connect(function()
-                closePicker()
-                if columnValue(row, column) ~= option then
-                    setCell(row, column, option)
-                    handle:_edited()
-                end
+                pickerPick(option)
             end)
+            table.insert(pickerButtons, { Button = button, Option = option, Key = string.lower(tostring(option)) })
         end
+        -- Searchable = true always shows the search row; SearchAfter = n shows
+        -- it once there are more than n options.
+        local searchable = column.Searchable == true
+            or (column.Searchable ~= false and tonumber(column.SearchAfter) ~= nil and #options > tonumber(column.SearchAfter))
+        local searchHeight = searchable and (TOUCH and 28 or 24) + 4 or 0
+        pickerSearchHolder.Visible = searchable
+        pickerSearch.Text = ""
+        pickerSearch.PlaceholderText = column.SearchPlaceholder or (#options > 6 and ("Search " .. #options .. " options") or "Search")
         local scale = math.max(window.Scale.Scale, 0.01)
-        local shown = math.clamp(#options, 1, 6)
-        picker.Size = UDim2.fromOffset(math.max(anchor.AbsoluteSize.X / scale, 120), shown * (itemHeight + 2) + 6)
+        local width = math.max(anchor.AbsoluteSize.X / scale, searchable and 160 or 120)
+        local maxShown = math.max(math.floor(tonumber(column.MaxRows) or 6), 1)
+        pickerFit = function()
+            local query = string.lower(trim(pickerSearch.Text))
+            local count = 0
+            for _, item in ipairs(pickerButtons) do
+                local match = query == "" or string.find(item.Key, query, 1, true) ~= nil
+                item.Button.Visible = match
+                if match then
+                    count += 1
+                end
+            end
+            pickerEmpty.Visible = count == 0
+            pickerEmpty.Position = UDim2.fromOffset(0, searchHeight + 4)
+            pickerList.Position = UDim2.fromOffset(0, searchHeight)
+            pickerList.Size = UDim2.new(1, 0, 1, -searchHeight)
+            pickerList.CanvasPosition = Vector2.zero
+            picker.Size = UDim2.fromOffset(width, searchHeight + math.clamp(count, 1, maxShown) * (itemHeight + 2) + 6)
+        end
+        pickerFit()
         picker.Parent = window:_popupHost(frame)
-        pickerList.CanvasPosition = Vector2.zero
         pickerAnchor = anchor
         picker.Visible = true
         window._closePopup = closePicker
         placePicker()
+        if searchable and not TOUCH then
+            task.defer(function()
+                if picker.Visible and pickerAnchor == anchor then
+                    pickerSearch:CaptureFocus()
+                end
+            end)
+        end
     end
 
     local function editorBox(cell)
@@ -12462,6 +12567,10 @@ function Tab:Table(opts)
                 Integer = column.Integer,
                 Default = column.Default,
                 Placeholder = column.Placeholder,
+                Searchable = column.Searchable,
+                SearchAfter = column.SearchAfter,
+                SearchPlaceholder = column.SearchPlaceholder,
+                MaxRows = column.MaxRows,
             })
         end
         if canRemove then
@@ -21378,7 +21487,7 @@ local Rules = Elements:CreateTable({
         { Name = "Item", Type = "Text", Placeholder = "Item name" },
         { Name = "Sell", Type = "Number", Min = 0, Integer = true, Align = "Right", Width = 0.22 },
         { Name = "Buy", Type = "Toggle", Align = "Center", Width = 0.14 },
-        { Name = "Mode", Type = "Dropdown", Options = { "Market", "Auction", "Trade" }, Width = 0.24 },
+        { Name = "Mode", Type = "Dropdown", Options = { "Market", "Auction", "Trade" }, Searchable = true, Width = 0.24 },
     },
     Rows = {
         { Item = "Golden Egg", Sell = 500, Buy = false, Mode = "Market" },

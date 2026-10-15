@@ -2679,10 +2679,13 @@ function Tab:Dropdown(opts)
         if not self_.Open then
             return
         end
-        local first = math.max(math.floor(list.CanvasPosition.Y / canvasScale() / STEP), 0) + 1
-        local count = math.ceil(list.Size.Y.Offset / STEP) + 1
+        -- Each index keeps the same pool slot while it stays in view (slot =
+        -- index mod count), so scrolling only rebinds rows entering the edge
+        -- instead of reshuffling every row each step.
+        local first = math.max(math.floor(list.CanvasPosition.Y / canvasScale() / STEP), 1)
+        local count = math.ceil(list.Size.Y.Offset / STEP) + 3
         for slot = 1, math.max(count, #pool) do
-            local index = first + slot - 1
+            local index = slot <= count and first + (slot - first) % count or 0
             local option = slot <= count and shown[index] or nil
             local entry = pool[slot]
             if option == nil then
@@ -12063,10 +12066,12 @@ function Tab:Table(opts)
             -- CanvasPosition is in screen pixels; undo any UIScale first.
             local logical = pickerList.CanvasSize.Y.Offset
             local scale = logical > 0 and pickerList.AbsoluteCanvasSize.Y / logical or 1
-            local first = math.max(math.floor(pickerList.CanvasPosition.Y / scale / step), 0) + 1
-            local count = maxShown + 1
+            -- Indices keep a stable slot (index mod count) so scrolling only
+            -- rebinds rows at the edges rather than every row each step.
+            local first = math.max(math.floor(pickerList.CanvasPosition.Y / scale / step), 1)
+            local count = maxShown + 3
             for slot = 1, math.max(count, #pickerPool) do
-                local index = first + slot - 1
+                local index = slot <= count and first + (slot - first) % count or 0
                 local option = slot <= count and pickerShown[index] or nil
                 local entry = pickerPool[slot]
                 if option == nil then

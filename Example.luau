@@ -9425,6 +9425,382 @@ Tab.AddGroupbox = Tab.Groupbox
 Tab.AddLeftGroupbox = sideGroupbox("Left")
 Tab.AddRightGroupbox = sideGroupbox("Right")
 
+-- Tabboxes: a groupbox whose header is a row of tabs. Each tab is its own
+-- page of rows and only the selected one shows (Obsidian's AddLeftTabbox).
+function Tab:Tabbox(opts)
+    if self._groupbox then
+        return self.Parent:Tabbox(opts)
+    end
+    opts = normalize(opts, { Title = "Name" })
+    local owner = self
+    local window = self.Window
+    local set = self:_columns()
+    local side = opts.Side
+    if side == "Left" or side == 1 then
+        side = 1
+    elseif side == "Right" or side == 2 then
+        side = 2
+    else
+        side = set.Counts[1] <= set.Counts[2] and 1 or 2
+    end
+    set.Counts[side] += 1
+
+    local box = create("Frame", {
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundColor3 = Theme.Surface2,
+        BorderSizePixel = 0,
+        LayoutOrder = set.Counts[side],
+        Parent = side == 1 and set.Left or set.Right,
+    })
+    box:SetAttribute("NoDrag", true)
+    corner(box, UDim.new(0, 10))
+    stroke(box)
+    create("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = box,
+    })
+    local header = create("Frame", {
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundColor3 = Theme.Surface3,
+        BorderSizePixel = 0,
+        LayoutOrder = 1,
+        Parent = box,
+    })
+    corner(header, UDim.new(0, 10))
+    create("Frame", {
+        AnchorPoint = Vector2.new(0, 1),
+        Position = UDim2.fromScale(0, 1),
+        Size = UDim2.new(1, 0, 0, 10),
+        BackgroundColor3 = Theme.Surface3,
+        BorderSizePixel = 0,
+        Parent = header,
+    })
+    local strip = create("Frame", {
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        ZIndex = 2,
+        Parent = header,
+    })
+    create("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = strip,
+    })
+    create("Frame", {
+        Size = UDim2.new(1, 0, 0, 1),
+        BackgroundColor3 = Theme.Stroke,
+        BorderSizePixel = 0,
+        LayoutOrder = 2,
+        Parent = box,
+    })
+    local body = create("Frame", {
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        ClipsDescendants = true,
+        LayoutOrder = 3,
+        Parent = box,
+    })
+
+    local tabbox = {
+        Name = opts.Name or "Tabbox",
+        Window = window,
+        Parent = owner,
+        Frame = box,
+        Tabs = {},
+        _frame = box,
+        _userVisible = opts.Visible ~= false,
+    }
+
+    local function closeOpen(page)
+        for _, element in ipairs(page._items) do
+            if element._onHide then
+                element._onHide()
+            end
+            if element.Open and type(element.SetOpen) == "function" then
+                element:SetOpen(false)
+            end
+        end
+    end
+
+    -- Buttons share the strip evenly; the selected one takes the body's fill
+    -- and an accent underline, so it reads as joined to the page below.
+    local function relayoutButtons()
+        local count = math.max(#tabbox.Tabs, 1)
+        for _, page in ipairs(tabbox.Tabs) do
+            page._button.Size = UDim2.new(1 / count, 0, 1, 0)
+        end
+    end
+    local function paint(page, instant)
+        local on = tabbox.Current == page
+        local duration = instant and 0 or 0.2
+        tween(page._button, { BackgroundTransparency = on and 0 or 1 }, duration)
+        tween(page._label, { TextColor3 = on and Theme.Text or Theme.Muted }, duration)
+        tween(page._bar, { BackgroundTransparency = on and 0 or 1 }, duration)
+        if page._icon then
+            tween(page._icon, { ImageColor3 = on and Theme.Accent or Theme.Muted }, duration)
+        end
+    end
+
+    function tabbox:SelectTab(page)
+        if type(page) == "string" or type(page) == "number" then
+            local found
+            for index, other in ipairs(tabbox.Tabs) do
+                if other.Title == page or index == page then
+                    found = other
+                end
+            end
+            page = found
+        end
+        if not page or page._destroyed or tabbox.Current == page then
+            return
+        end
+        local previous = tabbox.Current
+        if previous then
+            closeOpen(previous)
+            previous._userVisible = false
+            previous.List.Visible = false
+        end
+        tabbox.Current = page
+        page._userVisible = tabbox._userVisible
+        page.List.Visible = true
+        for _, other in ipairs(tabbox.Tabs) do
+            paint(other, previous == nil)
+        end
+        window._controlsDirty = true
+    end
+
+    function tabbox:AddTab(name, icon)
+        local tabOpts = normalize(name, { Title = "Name" })
+        if icon ~= nil and tabOpts.Icon == nil then
+            tabOpts.Icon = icon
+        end
+        local tabName = tabOpts.Name or ("Tab " .. (#tabbox.Tabs + 1))
+        local button = create("TextButton", {
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundColor3 = Theme.Surface2,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Text = "",
+            AutoButtonColor = false,
+            LayoutOrder = #tabbox.Tabs + 1,
+            ZIndex = 2,
+            Parent = strip,
+        })
+        local content = create("Frame", {
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.new(1, -12, 1, 0),
+            BackgroundTransparency = 1,
+            ZIndex = 2,
+            Parent = button,
+        })
+        create("UIListLayout", {
+            FillDirection = Enum.FillDirection.Horizontal,
+            HorizontalAlignment = Enum.HorizontalAlignment.Center,
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding = UDim.new(0, 6),
+            Parent = content,
+        })
+        local tabIcon
+        if tabOpts.Icon then
+            tabIcon = create("ImageLabel", {
+                Size = UDim2.fromOffset(13, 13),
+                BackgroundTransparency = 1,
+                ImageColor3 = Theme.Muted,
+                ScaleType = Enum.ScaleType.Fit,
+                LayoutOrder = 1,
+                ZIndex = 2,
+                Parent = content,
+            })
+            applyIcon(tabIcon, tabOpts.Icon)
+        end
+        local tabLabel = label({
+            Size = UDim2.new(0, 0, 1, 0),
+            AutomaticSize = Enum.AutomaticSize.X,
+            Text = tabName,
+            TextSize = 13,
+            FontFace = Fonts.Bold,
+            TextColor3 = Theme.Muted,
+            TextTruncate = Enum.TextTruncate.None,
+            LayoutOrder = 2,
+            ZIndex = 2,
+            Parent = content,
+        })
+        local bar = create("Frame", {
+            AnchorPoint = Vector2.new(0.5, 1),
+            Position = UDim2.fromScale(0.5, 1),
+            Size = UDim2.new(1, -16, 0, 2),
+            BackgroundColor3 = Theme.Accent,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ZIndex = 3,
+            Parent = button,
+        })
+        corner(bar, UDim.new(1, 0))
+
+        local inner = create("Frame", {
+            Size = UDim2.new(1, 0, 0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1,
+            Visible = false,
+            Parent = body,
+        })
+        Library._space(padding(inner, 0, 0, 6, 8), { 0, 0, 6, 8 })
+        Library._space(create("UIListLayout", {
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding = UDim.new(0, 2),
+            Parent = inner,
+        }), 2)
+
+        local page = setmetatable({
+            Name = tabbox.Name .. " › " .. tabName,
+            Title = tabName,
+            Window = window,
+            Parent = owner,
+            Tabbox = tabbox,
+            List = inner,
+            Frame = box,
+            _frame = box,
+            _order = 0,
+            _groupbox = true,
+            _metrics = METRICS.Row,
+            _items = {},
+            _userVisible = false,
+            _button = button,
+            _label = tabLabel,
+            _icon = tabIcon,
+            _bar = bar,
+        }, Tab)
+        -- Search treats an unselected tab as folded: expanding it selects it.
+        function page:IsCollapsed()
+            return tabbox.Current ~= page
+        end
+        function page:Expand()
+            tabbox:SelectTab(page)
+        end
+        function page:Collapse() end
+        function page:Select()
+            tabbox:SelectTab(page)
+        end
+        function page:SetTitle(text)
+            page.Title = tostring(text)
+            page.Name = tabbox.Name .. " › " .. page.Title
+            tabLabel.Text = page.Title
+        end
+        function page:Destroy()
+            for index = #page._items, 1, -1 do
+                local element = page._items[index]
+                if type(element.Destroy) == "function" then
+                    element:Destroy()
+                end
+            end
+            page._destroyed = true
+            local at = table.find(tabbox.Tabs, page)
+            if at then
+                table.remove(tabbox.Tabs, at)
+            end
+            at = table.find(owner._groupboxes, page)
+            if at then
+                table.remove(owner._groupboxes, at)
+            end
+            button:Destroy()
+            inner:Destroy()
+            relayoutButtons()
+            if tabbox.Current == page then
+                tabbox.Current = nil
+                if tabbox.Tabs[1] then
+                    tabbox:SelectTab(tabbox.Tabs[1])
+                end
+            end
+            window._controlsDirty = true
+        end
+
+        button.MouseEnter:Connect(function()
+            if tabbox.Current ~= page then
+                tween(tabLabel, { TextColor3 = Theme.Text }, 0.15)
+            end
+        end)
+        button.MouseLeave:Connect(function()
+            if tabbox.Current ~= page then
+                tween(tabLabel, { TextColor3 = Theme.Muted }, 0.15)
+            end
+        end)
+        button.Activated:Connect(function()
+            tabbox:SelectTab(page)
+        end)
+
+        table.insert(tabbox.Tabs, page)
+        table.insert(owner._groupboxes, page)
+        relayoutButtons()
+        if not tabbox.Current then
+            tabbox:SelectTab(page)
+        else
+            paint(page, true)
+        end
+        return page
+    end
+    tabbox.CreateTab = tabbox.AddTab
+    tabbox.Tab = tabbox.AddTab
+
+    function tabbox:SetTitle(text)
+        tabbox.Name = tostring(text)
+        for _, page in ipairs(tabbox.Tabs) do
+            page.Name = tabbox.Name .. " › " .. page.Title
+        end
+    end
+    function tabbox:IsVisible()
+        return tabbox._userVisible
+    end
+    function tabbox:SetVisible(visible)
+        visible = visible and true or false
+        if visible == tabbox._userVisible then
+            return
+        end
+        tabbox._userVisible = visible
+        if tabbox.Current then
+            if not visible then
+                closeOpen(tabbox.Current)
+            end
+            tabbox.Current._userVisible = visible
+        end
+        box.Visible = visible
+        window._controlsDirty = true
+    end
+    if not tabbox._userVisible then
+        box.Visible = false
+    end
+    function tabbox:Destroy()
+        for index = #tabbox.Tabs, 1, -1 do
+            tabbox.Tabs[index]:Destroy()
+        end
+        set.Counts[side] = math.max(set.Counts[side] - 1, 0)
+        tabbox._destroyed = true
+        window._controlsDirty = true
+        box:Destroy()
+    end
+
+    for _, entry in ipairs(opts.Tabs or {}) do
+        tabbox:AddTab(entry)
+    end
+    return tabbox
+end
+
+Tab.CreateTabbox = Tab.Tabbox
+Tab.AddTabbox = Tab.Tabbox
+function Tab:AddLeftTabbox(opts)
+    opts = normalize(opts, { Title = "Name" })
+    opts.Side = "Left"
+    return self:Tabbox(opts)
+end
+function Tab:AddRightTabbox(opts)
+    opts = normalize(opts, { Title = "Name" })
+    opts.Side = "Right"
+    return self:Tabbox(opts)
+end
+
 -- Button rows: equal-width buttons side by side.
 
 function Tab:ButtonRow(opts)
@@ -21651,6 +22027,15 @@ Priority:CreateOrderList({
     MaxRows = 5, -- more rows than MaxRows scroll inside the list
     Flag = "StepOrder",
 })
+
+-- Tabboxes: a groupbox with tabs in its header; each tab holds its own rows
+local Filters = Advanced:AddLeftTabbox({ Name = "Filters" })
+local Include = Filters:AddTab({ Name = "Include", Icon = "plus" })
+Include:CreateToggle({ Name = "Rare Items", CurrentValue = true, Flag = "IncludeRare" })
+Include:CreateToggle({ Name = "Event Items", CurrentValue = false, Flag = "IncludeEvent" })
+local Exclude = Filters:AddTab({ Name = "Exclude", Icon = "minus" })
+Exclude:CreateToggle({ Name = "Common Items", CurrentValue = false, Flag = "ExcludeCommon" })
+Exclude:CreateSlider({ Name = "Below Value", Range = { 0, 1000 }, Increment = 10, CurrentValue = 100, Flag = "ExcludeBelow" })
 
 Main:CreateSubTab({ Name = "Queue" }) -- an empty sub tab shows the empty state
 

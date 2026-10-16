@@ -350,7 +350,7 @@ The first tab created is selected automatically. When there are more tabs than f
 
 ### Handle
 
-Every `Create*` element constructor below, `CreateSubTab`, `CreateGroupbox` / `AddLeftGroupbox` / `AddRightGroupbox`, `SelectSubTab(subTab | name | index)`, `.CurrentSubTab`, `.Name` and `.Window`.
+Every `Create*` element constructor below, `CreateSubTab`, `CreateGroupbox` / `AddLeftGroupbox` / `AddRightGroupbox`, `CreateTabbox` / `AddLeftTabbox` / `AddRightTabbox`, `SelectSubTab(subTab | name | index)`, `.CurrentSubTab`, `.Name` and `.Window`.
 
 ---
 
@@ -428,6 +428,23 @@ Inside a groupbox, elements are compact rows without their own card. Dropdowns a
 | `Destroy()` | Remove the groupbox and its elements. |
 
 ---
+
+## Tabbox
+
+> A groupbox whose header is a row of tabs. Each tab holds its own rows; only the selected one shows.
+
+```lua
+local Filters = MobFarm:AddLeftTabbox({ Name = "Filters" })   -- or AddRightTabbox / CreateTabbox({ Side = ... })
+local Include = Filters:AddTab("Include", "plus")
+local Exclude = Filters:AddTab({ Name = "Exclude", Icon = "minus" })
+
+Include:CreateToggle({ Name = "Rare Items" })
+Exclude:CreateToggle({ Name = "Common Items" })
+
+Filters:SelectTab("Exclude") -- tab, name or index
+```
+
+Each tab works like a groupbox for adding elements. The tabbox has `SelectTab`, `.Current`, `.Tabs`, `SetVisible`, `IsVisible`, `SetTitle` and `Destroy`; each tab has `Select`, `SetTitle` and `Destroy`. Tab buttons share the header width evenly. Search finds elements inside any tab and switches to it.
 
 ## Visibility
 

@@ -185,6 +185,26 @@ local function rgb(r, g, b)
     return Color3.fromRGB(r, g, b)
 end
 
+-- Muted text is drawn small, so lift it toward Text until it clears WCAG AA
+-- (4.5:1) against Surface2, the lightest surface it usually sits on.
+function Library._readableMuted(muted, text, surface)
+    local function luminance(color)
+        local function channel(v)
+            return v <= 0.03928 and v / 12.92 or ((v + 0.055) / 1.055) ^ 2.4
+        end
+        return 0.2126 * channel(color.R) + 0.7152 * channel(color.G) + 0.0722 * channel(color.B)
+    end
+    local back = luminance(surface)
+    for step = 0, 20 do
+        local candidate = muted:Lerp(text, step / 20)
+        local front = luminance(candidate)
+        if (math.max(front, back) + 0.05) / (math.min(front, back) + 0.05) >= 4.6 then
+            return candidate
+        end
+    end
+    return text
+end
+
 local function preset(background, surface, surface2, surface3, strokeColor, strokeHover, accent, accentDark, text, muted)
     return {
         Background = rgb(table.unpack(background)),
@@ -196,7 +216,7 @@ local function preset(background, surface, surface2, surface3, strokeColor, stro
         Accent = rgb(table.unpack(accent)),
         AccentDark = rgb(table.unpack(accentDark)),
         Text = rgb(table.unpack(text)),
-        Muted = rgb(table.unpack(muted)),
+        Muted = Library._readableMuted(rgb(table.unpack(muted)), rgb(table.unpack(text)), rgb(table.unpack(surface2))),
     }
 end
 
@@ -1251,7 +1271,7 @@ function Tab:Divider(opts)
             Size = UDim2.new(0, 0, 0, 14),
             AutomaticSize = Enum.AutomaticSize.X,
             Text = caption,
-            TextSize = 11,
+            TextSize = 12,
             FontFace = Fonts.Regular,
             TextColor3 = Theme.Muted,
             TextTruncate = Enum.TextTruncate.None,
@@ -4685,7 +4705,7 @@ function Library.Window(_, opts)
             Position = UDim2.new(0, 56, 0.5, 3),
             Size = UDim2.new(1, -68, 0, 14),
             Text = tostring(subtitle),
-            TextSize = 11,
+            TextSize = 12,
             FontFace = Fonts.Regular,
             TextColor3 = Theme.Muted,
             Parent = header,
@@ -9522,6 +9542,152 @@ local function trim(text)
     return (tostring(text or ""):match("^%s*(.-)%s*$"))
 end
 
+-- An always-open single-pick list, for the config manager's saved configs.
+-- tagsOf(name) returns short markers drawn at the row's right edge.
+local function pickList(tab, names, default, rows, tagsOf, onPick, onOpen)
+    local ROW = TOUCH and 30 or 24
+    local listHeight = ROW * (rows or 5) + 8
+    local frame = card(tab, "Frame", listHeight + 4, {})
+    local inset = metricsOf(tab).Compact and 14 or 7
+    local holder = create("Frame", {
+        Position = UDim2.fromOffset(inset, 2),
+        Size = UDim2.new(1, -inset * 2, 0, listHeight),
+        BackgroundColor3 = Theme.Background,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        Parent = frame,
+    })
+    corner(holder, UDim.new(0, 6))
+    stroke(holder)
+    local scroll = create("ScrollingFrame", {
+        Position = UDim2.fromOffset(4, 4),
+        Size = UDim2.new(1, -8, 1, -8),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = Theme.Stroke,
+        CanvasSize = UDim2.new(),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        Parent = holder,
+    })
+    create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Parent = scroll })
+    local empty = label({
+        Size = UDim2.new(1, 0, 0, ROW),
+        Text = "no configs yet",
+        TextColor3 = Theme.Muted,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        Parent = holder,
+    })
+    local selected, buttons = nil, {}
+
+    local function paint(instant)
+        for name, entry in pairs(buttons) do
+            local on = name == selected
+            tween(entry.Button, { BackgroundTransparency = on and 0.82 or 1 }, instant and 0 or 0.15)
+            tween(entry.Label, { TextColor3 = on and Theme.Accent or Theme.Text }, instant and 0 or 0.15)
+            entry.Bar.Visible = on
+            local tags = tagsOf and tagsOf(name) or ""
+            entry.Tags.Text = tags
+            entry.Label.Size = UDim2.new(1, -(18 + entry.Tags.TextBounds.X + (tags ~= "" and 6 or 0)), 1, 0)
+        end
+    end
+
+    local function pick(name)
+        if selected == name then
+            return
+        end
+        selected = name
+        paint()
+        safeCall(onPick, name)
+    end
+
+    local handle = {}
+    function handle:Refresh(list)
+        for _, entry in pairs(buttons) do
+            entry.Button:Destroy()
+        end
+        buttons = {}
+        for index, name in ipairs(list or {}) do
+            local button = create("TextButton", {
+                Size = UDim2.new(1, -4, 0, ROW),
+                BackgroundColor3 = Theme.Accent,
+                BackgroundTransparency = 1,
+                Text = "",
+                AutoButtonColor = false,
+                LayoutOrder = index,
+                Parent = scroll,
+            })
+            corner(button, UDim.new(0, 4))
+            local bar = create("Frame", {
+                Position = UDim2.new(0, 0, 0.5, -6),
+                Size = UDim2.fromOffset(2, 12),
+                BackgroundColor3 = Theme.Accent,
+                BorderSizePixel = 0,
+                Visible = false,
+                Parent = button,
+            })
+            local text = label({
+                Position = UDim2.fromOffset(10, 0),
+                Size = UDim2.new(1, -18, 1, 0),
+                Text = name,
+                TextSize = 13,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                Parent = button,
+            })
+            local tags = label({
+                AnchorPoint = Vector2.new(1, 0),
+                Position = UDim2.new(1, -8, 0, 0),
+                Size = UDim2.new(0, 0, 1, 0),
+                AutomaticSize = Enum.AutomaticSize.X,
+                TextColor3 = Theme.Muted,
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                Parent = button,
+            })
+            local lastClick = 0
+            button.MouseButton1Click:Connect(function()
+                -- A second click on the picked row loads it.
+                if selected == name and os.clock() - lastClick < 0.35 then
+                    lastClick = 0
+                    safeCall(onOpen, name)
+                    return
+                end
+                lastClick = os.clock()
+                pick(name)
+            end)
+            button.MouseEnter:Connect(function()
+                if selected ~= name then
+                    tween(button, { BackgroundTransparency = 0.93 }, 0.1)
+                end
+            end)
+            button.MouseLeave:Connect(function()
+                if selected ~= name then
+                    tween(button, { BackgroundTransparency = 1 }, 0.15)
+                end
+            end)
+            buttons[name] = { Button = button, Label = text, Tags = tags, Bar = bar }
+        end
+        if selected and not buttons[selected] then
+            pick(nil)
+        end
+        empty.Visible = next(buttons) == nil
+        paint(true)
+    end
+    function handle:Get()
+        return selected
+    end
+    function handle:Set(name)
+        pick(name and buttons[name] and name or nil)
+    end
+    function handle:Repaint()
+        paint(true)
+    end
+    handle:Refresh(names)
+    handle:Set(default)
+    return finishElement(tab, { Name = "Configs" }, handle, frame, "PickList")
+end
+
 -- Managers go in their own groupbox when added straight to a tab.
 local function managerHost(tab, opts, name, icon)
     if tab._groupbox then
@@ -9544,8 +9710,18 @@ function Tab:ConfigManager(opts)
         window:Notify({ Title = title, Content = detail, Type = ok and "Success" or "Error", Duration = 3 })
     end
 
+    local autoToggle
     local function refreshStatus()
-        status:Set(("loaded: %s   |   autoload: %s"):format(window.LoadedConfig or "none", window:GetAutoload() or "none"))
+        if not status then
+            return
+        end
+        local count = #window:ListConfigs()
+        status:Set(("%d saved  ·  loaded: %s  ·  auto: %s"):format(count, window.LoadedConfig or "none", window:GetAutoload() or "none"))
+        list:Repaint()
+        if autoToggle then
+            local picked = list:Get()
+            autoToggle:Set(picked ~= nil and window:GetAutoload() == picked, true)
+        end
     end
 
     local function pickedName()
@@ -9556,35 +9732,61 @@ function Tab:ConfigManager(opts)
         return name
     end
 
-    local nameInput = actionInput(host, opts.Placeholder or "config name", nil, function(text)
-        manager:Create(text)
-    end)
     local names = window:ListConfigs()
     local initial = window.LoadedConfig or window:GetAutoload()
-    list = host:Dropdown({
-        Stacked = true,
-        Options = names,
-        Default = table.find(names, initial) and initial or nil,
-        EmptyText = "--",
-        NoneText = "--",
-    })
+    local nameInput
+    list = pickList(host, names, table.find(names, initial) and initial or nil, opts.Rows, function(name)
+        local tags = {}
+        if name == window.LoadedConfig then
+            table.insert(tags, "loaded")
+        end
+        if name == window:GetAutoload() then
+            table.insert(tags, "auto")
+        end
+        return table.concat(tags, " · ")
+    end, function(name)
+        if nameInput then
+            nameInput:Set(name or "")
+        end
+        refreshStatus()
+    end, function(name)
+        manager:Load(name)
+    end)
+    status = host:Label("0 saved")
+    host:Label("Config Name:")
+    nameInput = actionInput(host, opts.Placeholder or "Type config name here...", nil, function(text)
+        manager:Create(text)
+    end)
     host:ButtonRow({
-        { Name = "Create", Callback = function() manager:Create(nameInput:Get()) end },
         { Name = "Save", Callback = function() manager:Save() end },
-    })
-    host:ButtonRow({
         { Name = "Load", Callback = function() manager:Load() end },
-        { Name = "Delete", Style = "Danger", Callback = function() manager:Delete() end },
     })
     host:ButtonRow({
-        { Name = "Set autoload", Callback = function() manager:SetAutoload() end },
-        { Name = "Clear autoload", Callback = function() manager:ClearAutoload() end },
+        { Name = "Delete", Style = "Danger", Callback = function() manager:Delete() end },
+        { Name = "Refresh", Callback = function() manager:Refresh() end },
     })
+    autoToggle = host:Toggle({
+        Name = "Auto Load Config",
+        Desc = "Loads the selected config on launch",
+        Callback = function(value)
+            local picked = list:Get()
+            if not picked then
+                notify(false, "No config selected", "Pick one from the list first")
+            elseif value ~= (window:GetAutoload() == picked) then
+                if value then
+                    manager:SetAutoload(picked)
+                else
+                    manager:ClearAutoload()
+                end
+            end
+            refreshStatus()
+        end,
+    })
+    host:Divider({ Text = "more" })
     host:ButtonRow({
         { Name = "Rename", Callback = function() manager:Rename(nil, nameInput:Get()) end },
         { Name = "Reset", Style = "Danger", Callback = function() manager:Reset() end },
     })
-    status = host:Label("loaded: none   |   autoload: none")
     modeList = host:Dropdown({
         Name = "Autoload mode",
         Stacked = true,
@@ -9595,7 +9797,6 @@ function Tab:ConfigManager(opts)
             manager:SetAutoloadMode(choice == "This account" and "Account" or "Global")
         end,
     })
-    host:Button({ Name = "Refresh list", Callback = function() manager:Refresh() end })
     host:Divider({ Text = "share" })
     host:Button({ Name = "Copy code", Callback = function() manager:Export() end })
     local codeInput = actionInput(host, "paste a config code...", nil, function(text)
@@ -9638,6 +9839,10 @@ function Tab:ConfigManager(opts)
     end
 
     function manager:Save(name)
+        local typed = trim(nameInput:Get())
+        if not name and typed ~= "" and typed ~= list:Get() then
+            return manager:Create(typed)
+        end
         name = name or list:Get()
         if not name then
             local typed = trim(nameInput:Get())
@@ -9661,6 +9866,7 @@ function Tab:ConfigManager(opts)
             return
         end
         local ok, err = window:LoadConfig(name)
+        refreshStatus()
         notify(ok, ok and "Config loaded" or "Load failed", ok and name or tostring(err))
     end
 
@@ -9738,6 +9944,7 @@ function Tab:ConfigManager(opts)
             return
         end
         local ok, err = window:SetAutoload(name)
+        refreshStatus()
         notify(ok, ok and "Autoload set" or "Autoload failed", ok and name or tostring(err))
     end
 
@@ -9748,6 +9955,7 @@ function Tab:ConfigManager(opts)
             return
         end
         local ok, err = window:SetAutoload(nil)
+        refreshStatus()
         notify(ok, ok and "Autoload cleared" or "Clear failed", ok and current or tostring(err))
     end
 
@@ -9917,9 +10125,15 @@ function Tab:ThemeManager(opts)
             end
         end,
     })
+    -- Menu look (weather, scale, background...) gets its own groupbox, apart from the colors.
+    local menu = host
+    if not self._groupbox and opts.Menu ~= false then
+        menu = self:Groupbox({ Name = opts.MenuName or "Menu", Icon = opts.MenuIcon or "monitor", Side = opts.MenuSide or opts.Side })
+        menu._manager = true
+    end
     local labels = { None = "None", Snow = "Snow", Rain = "Rain", Ember = "Hell Fire", Sakura = "Sakura", Fireflies = "Fireflies", Matrix = "Matrix" }
     if window._backdrop and opts.Weather ~= false then
-        weather = host:Dropdown({
+        weather = menu:Dropdown({
             Name = "Weather",
             Options = { "Snow", "Rain", "Hell Fire", "Sakura", "Fireflies", "Matrix", "None" },
             Default = labels[window.Weather] or "None",
@@ -9932,7 +10146,7 @@ function Tab:ThemeManager(opts)
         })
     end
     if window._backdrop and opts.Weather ~= false then
-        weatherMode = host:Dropdown({
+        weatherMode = menu:Dropdown({
             Name = "Weather Mode",
             Options = { "Screen", "UI" },
             Default = window.WeatherMode,
@@ -9945,7 +10159,7 @@ function Tab:ThemeManager(opts)
         })
     end
     if window._backdrop and opts.Dim ~= false then
-        dim = host:Toggle({
+        dim = menu:Toggle({
             Name = "Dim",
             Default = window._backdropDim,
             Callback = function(value)
@@ -9954,7 +10168,7 @@ function Tab:ThemeManager(opts)
         })
     end
     if opts.Transparent ~= false then
-        transparent = host:Toggle({
+        transparent = menu:Toggle({
             Name = "Transparent",
             Default = window.Transparent == true,
             Callback = function(value)
@@ -9963,7 +10177,7 @@ function Tab:ThemeManager(opts)
         })
     end
     if opts.DragSkeleton ~= false and opts.DragStyle ~= false then
-        dragSkeleton = host:Dropdown({
+        dragSkeleton = menu:Dropdown({
             Name = "Drag Style",
             Options = Library.DragStyles,
             Default = window.DragStyle,
@@ -9976,7 +10190,7 @@ function Tab:ThemeManager(opts)
         })
     end
     if opts.IslandStyle ~= false then
-        islandStyle = host:Dropdown({
+        islandStyle = menu:Dropdown({
             Name = "Dynamic Island",
             Options = Library.IslandStyles,
             Default = window.IslandStyle,
@@ -9989,7 +10203,7 @@ function Tab:ThemeManager(opts)
         })
     end
     if opts.AdaptiveSize ~= false then
-        adaptive = host:Toggle({
+        adaptive = menu:Toggle({
             Name = "Adaptive Size",
             Default = window:GetAdaptiveSize(),
             Callback = function(value)
@@ -9998,7 +10212,7 @@ function Tab:ThemeManager(opts)
         })
     end
     if opts.Scale ~= false then
-        uiScale = host:Slider({
+        uiScale = menu:Slider({
             Name = "UI Scale",
             Min = 60,
             Max = 150,
@@ -10018,7 +10232,7 @@ function Tab:ThemeManager(opts)
         })
     end
     if opts.Density ~= false then
-        density = host:Dropdown({
+        density = menu:Dropdown({
             Name = "Density",
             Options = { "Compact", "Default", "Comfortable" },
             Default = Library.Density,
@@ -10031,7 +10245,7 @@ function Tab:ThemeManager(opts)
         })
     end
     if opts.CornerRadius ~= false then
-        cornerRadius = host:Slider({
+        cornerRadius = menu:Slider({
             Name = "Corner Radius",
             Min = 0,
             Max = 20,
@@ -10063,7 +10277,7 @@ function Tab:ThemeManager(opts)
         end
         local options = window:ListBackgrounds()
         table.insert(options, 1, "None")
-        background = host:Dropdown({
+        background = menu:Dropdown({
             Name = "Background",
             Options = options,
             Default = backgroundLabel(window.Background),
@@ -10075,7 +10289,7 @@ function Tab:ThemeManager(opts)
                 end
             end,
         })
-        backgroundInput = actionInput(host, "image id or url", "Set", function(text)
+        backgroundInput = actionInput(menu, "image id or url", "Set", function(text)
             text = trim(text)
             if text == "" then
                 notify(false, "No image", "Paste an image id or link first")
@@ -10083,7 +10297,7 @@ function Tab:ThemeManager(opts)
             end
             applyBackground(text)
         end)
-        backgroundOpacity = host:Slider({
+        backgroundOpacity = menu:Slider({
             Name = "Background Opacity",
             Min = 0,
             Max = 100,
@@ -10740,7 +10954,7 @@ function Tab:StatusList(opts)
     local heading = label({
         Size = UDim2.new(1, 0, 0, 16),
         Text = string.upper(tostring(opts.Name or "")),
-        TextSize = 11,
+        TextSize = 12,
         TextColor3 = Theme.Muted,
         Visible = tostring(opts.Name or "") ~= "",
         LayoutOrder = 1,
@@ -11571,7 +11785,7 @@ function Tab:Table(opts)
             Size = UDim2.new(0, 0, 1, 0),
             AutomaticSize = Enum.AutomaticSize.X,
             Text = "",
-            TextSize = 11,
+            TextSize = 12,
             FontFace = Fonts.Regular,
             TextColor3 = Theme.Muted,
             TextTruncate = Enum.TextTruncate.None,
@@ -12560,7 +12774,7 @@ function Tab:Table(opts)
                 Size = UDim2.new(1, align == Enum.TextXAlignment.Center and 0 or -16, 1, 0),
                 Position = UDim2.fromOffset(right and 16 or 0, 0),
                 Text = string.upper(column.Name),
-                TextSize = 11,
+                TextSize = 12,
                 FontFace = Fonts.Bold,
                 TextColor3 = Theme.Muted,
                 TextXAlignment = align,
@@ -13636,8 +13850,8 @@ function Window:_fitTitle(tab)
 end
 
 function Window:_buildSearch(content)
-    -- No box: the icon and text sit on a thin baseline. Focus draws an
-    -- accent line out from the middle of it.
+    -- A recessed field: darker than the header, hairline stroke, icon
+    -- inset left and a clear button that only shows while there is text.
     local holder = create("Frame", {
         AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, -56, 0, 14),
@@ -13648,30 +13862,33 @@ function Window:_buildSearch(content)
         Parent = content,
     })
     holder:SetAttribute("NoDrag", true)
-    local baseline = create("Frame", {
-        AnchorPoint = Vector2.new(0, 1),
-        Position = UDim2.new(0, 0, 1, -2),
-        Size = UDim2.new(1, 0, 0, 1),
-        BackgroundColor3 = Theme.Stroke,
+    local field = create("Frame", {
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.fromScale(0, 0.5),
+        Size = UDim2.new(1, 0, 0, 28),
+        BackgroundColor3 = Theme.Background,
+        BackgroundTransparency = 0.2,
         BorderSizePixel = 0,
         Parent = holder,
     })
-    local focusLine = create("Frame", {
-        AnchorPoint = Vector2.new(0.5, 1),
-        Position = UDim2.new(0.5, 0, 1, -1),
-        Size = UDim2.new(0, 0, 0, 2),
-        BackgroundColor3 = Theme.Accent,
-        BorderSizePixel = 0,
-        ZIndex = 2,
-        Parent = holder,
+    corner(field, UDim.new(0, 6))
+    local fieldStroke = stroke(field, Theme.Stroke, 0, 1)
+    local _, icon = glowIcon(field, "search", Theme.Muted, UDim2.new(0, 9, 0.5, 0))
+    icon.Parent.AnchorPoint = Vector2.new(0, 0.5)
+    icon.Parent.Size = UDim2.fromOffset(13, 13)
+    local clear = create("ImageButton", {
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -7, 0.5, 0),
+        Size = UDim2.fromOffset(14, 14),
+        BackgroundTransparency = 1,
+        ImageColor3 = Theme.Muted,
+        Visible = false,
+        Parent = field,
     })
-    corner(focusLine, UDim.new(1, 0))
-    -- Kept for the focus handlers below, which recolour it.
-    local _, icon = glowIcon(holder, "search", Theme.Muted, UDim2.new(0, 2, 0.5, -1))
-    icon.Parent.Size = UDim2.fromOffset(15, 15)
+    applyIcon(clear, "x")
     local box = create("TextBox", {
-        Position = UDim2.fromOffset(26, 0),
-        Size = UDim2.new(1, -28, 1, -2),
+        Position = UDim2.fromOffset(28, 0),
+        Size = UDim2.new(1, -52, 1, 0),
         BackgroundTransparency = 1,
         Text = "",
         PlaceholderText = "Search",
@@ -13682,15 +13899,30 @@ function Window:_buildSearch(content)
         TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd,
         ClearTextOnFocus = false,
-        Parent = holder,
+        Parent = field,
     })
+    clear.MouseEnter:Connect(function()
+        tween(clear, { ImageColor3 = Theme.Text }, 0.1)
+    end)
+    clear.MouseLeave:Connect(function()
+        tween(clear, { ImageColor3 = Theme.Muted }, 0.15)
+    end)
+    clear.MouseButton1Click:Connect(function()
+        box.Text = ""
+        box:CaptureFocus()
+    end)
+    box:GetPropertyChangedSignal("Text"):Connect(function()
+        clear.Visible = box.Text ~= ""
+    end)
     holder.MouseEnter:Connect(function()
         if not box:IsFocused() then
-            tween(baseline, { BackgroundColor3 = Theme.StrokeHover }, 0.15)
+            tween(fieldStroke, { Color = Theme.StrokeHover }, 0.15)
         end
     end)
     holder.MouseLeave:Connect(function()
-        tween(baseline, { BackgroundColor3 = Theme.Stroke }, 0.25)
+        if not box:IsFocused() then
+            tween(fieldStroke, { Color = Theme.Stroke }, 0.25)
+        end
     end)
     self.SearchBox = box
 
@@ -14009,14 +14241,16 @@ function Window:_buildSearch(content)
     end
 
     box.Focused:Connect(function()
-        tween(focusLine, { Size = UDim2.new(1, 0, 0, 2) }, 0.35, Enum.EasingStyle.Quint)
-        tween(icon, { ImageColor3 = Theme.Accent }, 0.15)
+        tween(fieldStroke, { Color = Theme.Accent }, 0.15)
+        tween(field, { BackgroundTransparency = 0 }, 0.15)
+        tween(icon, { ImageColor3 = Theme.Text }, 0.15)
         if box.Text ~= "" then
             update()
         end
     end)
     box.FocusLost:Connect(function(enterPressed)
-        tween(focusLine, { Size = UDim2.new(0, 0, 0, 2) }, 0.3, Enum.EasingStyle.Quint)
+        tween(fieldStroke, { Color = Theme.Stroke }, 0.2)
+        tween(field, { BackgroundTransparency = 0.2 }, 0.2)
         tween(icon, { ImageColor3 = Theme.Muted }, 0.2)
         if enterPressed and open then
             choose(results[selected])
@@ -14179,7 +14413,7 @@ function Window:_buildProfile(sidebar)
         Position = UDim2.new(0, 48, 0.5, 1),
         Size = UDim2.new(1, -74, 0, 13),
         Text = "…",
-        TextSize = 11,
+        TextSize = 12,
         FontFace = Fonts.Regular,
         TextColor3 = Theme.Muted,
         Parent = card,
@@ -14316,7 +14550,7 @@ function Window:_homeCaption(parent, text, order)
     return label({
         Size = UDim2.new(1, 0, 0, 22),
         Text = string.upper(text),
-        TextSize = 10,
+        TextSize = 12,
         TextColor3 = Theme.Muted,
         TextYAlignment = Enum.TextYAlignment.Top,
         LayoutOrder = order,
@@ -14430,7 +14664,7 @@ function Window:_homeProfile(list, opts, order)
         Position = UDim2.fromOffset(22, 20),
         Size = textWidth + UDim2.fromOffset(0, 14),
         Text = string.upper(opts.Welcome or "Welcome back"),
-        TextSize = 10,
+        TextSize = 12,
         TextColor3 = Theme.Muted,
         Parent = banner,
     })
@@ -14505,82 +14739,113 @@ end
 
 -- A large live readout with a short bar history under it. Returns the value
 -- label and a push(value, color) that adds a sample.
-function Window:_homeGraph(parent, order, icon, title, ceiling)
+function Window:_homeGraph(parent, order, icon, title, ceiling, unit)
+    -- Reads like a perf overlay: name and min/avg/max on one line, the
+    -- reading under it, and a dense history strip tinted by health.
     local cell = create("Frame", {
         BackgroundTransparency = 1,
         LayoutOrder = order,
         Parent = parent,
     })
-    local holder = glowIcon(cell, icon, Theme.Muted, UDim2.new(0, 0, 0, 7))
-    holder.Size = UDim2.fromOffset(12, 12)
     label({
-        Position = UDim2.fromOffset(18, 0),
-        Size = UDim2.new(1, -18, 0, 14),
-        Text = string.upper(title),
-        TextSize = 10,
+        Size = UDim2.new(0.4, 0, 0, 14),
+        Text = title,
+        TextSize = 12,
         TextColor3 = Theme.Muted,
         Parent = cell,
     })
+    local range = label({
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, 0, 0, 0),
+        Size = UDim2.new(0.6, 0, 0, 14),
+        Text = "",
+        TextSize = 12,
+        TextColor3 = Theme.Muted,
+        TextXAlignment = Enum.TextXAlignment.Right,
+        RichText = true,
+        Parent = cell,
+    })
     local value = label({
-        Position = UDim2.fromOffset(0, 16),
-        Size = UDim2.new(1, 0, 0, 28),
+        Position = UDim2.fromOffset(0, 15),
+        Size = UDim2.new(1, 0, 0, 26),
         Text = "…",
-        TextSize = 24,
+        TextSize = 22,
         FontFace = Fonts.Bold,
         RichText = true,
         Parent = cell,
     })
     local track = create("Frame", {
-        Position = UDim2.fromOffset(0, 50),
-        Size = UDim2.new(1, 0, 0, 26),
+        Position = UDim2.fromOffset(0, 46),
+        Size = UDim2.new(1, 0, 0, 28),
         BackgroundTransparency = 1,
+        ClipsDescendants = true,
         Parent = cell,
+    })
+    create("Frame", {
+        AnchorPoint = Vector2.new(0, 1),
+        Position = UDim2.fromScale(0, 1),
+        Size = UDim2.new(1, 0, 0, 1),
+        BackgroundColor3 = Theme.Stroke,
+        BorderSizePixel = 0,
+        Parent = track,
+    })
+    local columns = create("Frame", {
+        Size = UDim2.new(1, 0, 1, -1),
+        BackgroundTransparency = 1,
+        Parent = track,
     })
     create("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
         VerticalAlignment = Enum.VerticalAlignment.Bottom,
         SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 2),
-        Parent = track,
+        Padding = UDim.new(0, 1),
+        Parent = columns,
     })
-    local COUNT = 24
+    local COUNT = 48
     local bars, samples = {}, {}
     for index = 1, COUNT do
-        local bar = create("Frame", {
-            Size = UDim2.new(1 / COUNT, -2, 0, 2),
-            BackgroundColor3 = Theme.Surface3,
+        bars[index] = create("Frame", {
+            Size = UDim2.new(1 / COUNT, -1, 0, 0),
+            BackgroundColor3 = Theme.Muted,
             BorderSizePixel = 0,
             LayoutOrder = index,
-            Parent = track,
+            Parent = columns,
         })
-        corner(bar, UDim.new(0, 2))
-        bars[index] = bar
+    end
+    local muted = "#" .. Theme.Muted:ToHex()
+    local function setValue(sample)
+        value.Text = ('%d<font size="13" color="%s"> %s</font>'):format(sample, muted, unit or "")
     end
     local function push(sample, color)
+        setValue(sample)
         table.insert(samples, sample)
         if #samples > COUNT then
             table.remove(samples, 1)
         end
-        local top = ceiling or 1
+        local top, low, sum = ceiling or 1, math.huge, 0
         for _, s in ipairs(samples) do
             top = math.max(top, s)
+            low = math.min(low, s)
+            sum += s
         end
+        range.Text = ('min <font color="#%s">%d</font>   avg <font color="#%s">%d</font>   max <font color="#%s">%d</font>'):format(
+            Theme.Text:ToHex(), low, Theme.Text:ToHex(), math.floor(sum / #samples + 0.5), Theme.Text:ToHex(), math.max(table.unpack(samples)))
         local offset = COUNT - #samples
         for index, bar in ipairs(bars) do
             local s = samples[index - offset]
-            local latest = index == COUNT
-            local height = s and math.max(s / top, 0.08) or 0
+            local age = COUNT - index
             tween(bar, {
-                Size = UDim2.new(1 / COUNT, -2, height, s and 0 or 2),
-                BackgroundColor3 = (latest and color) or (s and Theme.Muted or Theme.Surface3),
-                BackgroundTransparency = latest and 0 or (s and 0.6 or 0),
-            }, 0.35, Enum.EasingStyle.Quint)
+                Size = UDim2.new(1 / COUNT, -1, s and math.max(s / top, 0.04) or 0, 0),
+                BackgroundColor3 = color,
+                -- Older samples fade so the strip reads left-to-right as time.
+                BackgroundTransparency = s and (age == 0 and 0 or 0.45 + 0.35 * age / COUNT) or 1,
+            }, 0.3, Enum.EasingStyle.Quint)
         end
     end
     return value, push
 end
 
--- A small figure: value over a caps caption.
+-- A small figure: value over a quiet caption.
 function Window:_homeFigure(parent, order, title)
     local cell = create("Frame", {
         BackgroundTransparency = 1,
@@ -14598,8 +14863,8 @@ function Window:_homeFigure(parent, order, title)
     label({
         Position = UDim2.fromOffset(0, 21),
         Size = UDim2.new(1, -8, 0, 14),
-        Text = string.upper(title),
-        TextSize = 10,
+        Text = title,
+        TextSize = 12,
         TextColor3 = Theme.Muted,
         Parent = cell,
     })
@@ -14634,7 +14899,7 @@ function Window:_homeAction(parent, order, icon, text, callback)
         Position = UDim2.new(0, 4, 0, 32),
         Size = UDim2.new(1, -8, 0, 14),
         Text = text,
-        TextSize = 11,
+        TextSize = 12,
         TextColor3 = Theme.Muted,
         TextXAlignment = Enum.TextXAlignment.Center,
         Parent = button,
@@ -14727,7 +14992,7 @@ function Window:_homeGame(parent, order)
     label({
         Size = UDim2.new(1, 0, 0, 26),
         Text = "Job " .. shortId(game.JobId) .. "  ·  Place " .. tostring(game.PlaceId),
-        TextSize = 11,
+        TextSize = 12,
         FontFace = Fonts.Regular,
         TextColor3 = Theme.Muted,
         TextYAlignment = Enum.TextYAlignment.Bottom,
@@ -14977,7 +15242,7 @@ function Window:_homeExecutor(list, opts, order)
         Size = UDim2.new(0, 0, 1, 0),
         AutomaticSize = Enum.AutomaticSize.X,
         Text = keyName(self.Keybind),
-        TextSize = 11,
+        TextSize = 12,
         FontFace = Fonts.Bold,
         TextTruncate = Enum.TextTruncate.None,
         Parent = chip,
@@ -15317,7 +15582,7 @@ function Window:ShowFeatures()
             Position = UDim2.fromOffset(24, 10),
             Size = UDim2.new(1, -70, 0, 16),
             Text = string.upper(group.Name),
-            TextSize = 11,
+            TextSize = 12,
             TextColor3 = Theme.Muted,
             Parent = header,
         })
@@ -15326,7 +15591,7 @@ function Window:ShowFeatures()
             Position = UDim2.new(1, -4, 0, 10),
             Size = UDim2.new(0, 40, 0, 16),
             Text = tostring(#group.Items),
-            TextSize = 11,
+            TextSize = 12,
             TextColor3 = Theme.Muted,
             TextXAlignment = Enum.TextXAlignment.Right,
             Parent = header,
@@ -15368,7 +15633,7 @@ function Window:ShowFeatures()
                     Size = UDim2.new(0, 0, 1, 0),
                     AutomaticSize = Enum.AutomaticSize.X,
                     Text = tostring(item.Tag),
-                    TextSize = 11,
+                    TextSize = 12,
                     TextColor3 = Theme.Accent,
                     TextTruncate = Enum.TextTruncate.None,
                     Parent = tag,
@@ -15387,7 +15652,7 @@ function Window:ShowFeatures()
                     Position = UDim2.fromOffset(34, 23),
                     Size = UDim2.new(1, -(34 + right), 0, 14),
                     Text = sub,
-                    TextSize = 11,
+                    TextSize = 12,
                     FontFace = Fonts.Regular,
                     TextColor3 = Theme.Muted,
                     Parent = row,
@@ -15489,8 +15754,8 @@ function Window:_homeStats(list, opts, order, tab)
         Parent = card,
     })
     create("UIGridLayout", {
-        CellPadding = UDim2.fromOffset(24, 0),
-        CellSize = UDim2.new(0.5, -12, 0, 76),
+        CellPadding = UDim2.fromOffset(28, 0),
+        CellSize = UDim2.new(0.5, -14, 0, 76),
         SortOrder = Enum.SortOrder.LayoutOrder,
         Parent = graphs,
     })
@@ -15522,7 +15787,7 @@ function Window:_homeStats(list, opts, order, tab)
         if kind and not values[name] then
             if name == "FPS" or name == "Ping" then
                 graphCount += 1
-                values[name], sparks[name] = self:_homeGraph(graphs, index, kind[1], kind[2], name == "FPS" and 60 or 100)
+                values[name], sparks[name] = self:_homeGraph(graphs, index, kind[1], kind[2], name == "FPS" and 60 or 100, name == "FPS" and "fps" or "ms")
             else
                 figureCount += 1
                 values[name] = self:_homeFigure(figures, index, kind[2])
@@ -15608,9 +15873,7 @@ function Window:_homeStats(list, opts, order, tab)
     end
     return function()
         if values.FPS then
-            values.FPS.Text = tostring(frames)
-            tint(values.FPS, Library._healthColor(frames, 50, 30))
-            sparks.FPS(frames, Library._healthColor(frames, 50, 30))
+            sparks.FPS(frames, tinted and Library._healthColor(frames, 50, 30) or Theme.Muted)
         end
         frames = 0
         if values.Ping then
@@ -15618,9 +15881,7 @@ function Window:_homeStats(list, opts, order, tab)
                 return math.floor(LocalPlayer:GetNetworkPing() * 1000)
             end)
             ping = ok and ping or 0
-            values.Ping.Text = ping .. "ms"
-            tint(values.Ping, Library._healthColor(ping, 90, 180, true))
-            sparks.Ping(ping, Library._healthColor(ping, 90, 180, true))
+            sparks.Ping(ping, tinted and Library._healthColor(ping, 90, 180, true) or Theme.Muted)
         end
         if values.Players then
             values.Players.Text = #Players:GetPlayers() .. "/" .. Players.MaxPlayers
@@ -15704,7 +15965,7 @@ local function homePage(sub, page)
                     Size = UDim2.new(0, 0, 1, 0),
                     AutomaticSize = Enum.AutomaticSize.X,
                     Text = entry.Tag or entry.Date,
-                    TextSize = 11,
+                    TextSize = 12,
                     TextColor3 = Theme.Muted,
                     TextTruncate = Enum.TextTruncate.None,
                     Parent = chip,
@@ -16282,7 +16543,7 @@ function Window:CloudConfigs(opts)
             BackgroundColor3 = Theme.Surface3,
             BackgroundTransparency = 0.2,
             Text = text,
-            TextSize = 11,
+            TextSize = 12,
             TextColor3 = Theme.Muted,
             TextXAlignment = Enum.TextXAlignment.Center,
             TextTruncate = Enum.TextTruncate.None,
@@ -16383,7 +16644,7 @@ function Window:CloudConfigs(opts)
             Size = UDim2.fromOffset(0, 14),
             AutomaticSize = Enum.AutomaticSize.X,
             Text = "",
-            TextSize = 11,
+            TextSize = 12,
             FontFace = Fonts.Regular,
             TextColor3 = Theme.Muted,
             TextTruncate = Enum.TextTruncate.None,
@@ -16568,7 +16829,7 @@ function Window:CloudConfigs(opts)
             Position = UDim2.fromOffset(8, 0),
             Size = UDim2.new(1, -60, 1, 0),
             Text = "Recent searches",
-            TextSize = 11,
+            TextSize = 12,
             TextColor3 = Theme.Muted,
             Parent = header,
         })
@@ -16579,7 +16840,7 @@ function Window:CloudConfigs(opts)
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundTransparency = 1,
             Text = "Clear",
-            TextSize = 11,
+            TextSize = 12,
             FontFace = Fonts.Medium,
             TextColor3 = Theme.Accent,
             AutoButtonColor = false,
@@ -16962,7 +17223,7 @@ function Window:CloudConfigs(opts)
             Size = UDim2.fromOffset(0, 17),
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundTransparency = 0.85,
-            TextSize = 10,
+            TextSize = 12,
             FontFace = Fonts.Bold,
             TextXAlignment = Enum.TextXAlignment.Center,
             TextTruncate = Enum.TextTruncate.None,
@@ -18604,7 +18865,7 @@ function Window:_overflowHint(host, scroller, items, vertical, fadeColor)
             Size = UDim2.new(0, 0, 1, 0),
             AutomaticSize = Enum.AutomaticSize.X,
             Text = "",
-            TextSize = 11,
+            TextSize = 12,
             TextColor3 = Theme.Text,
             TextTransparency = 1,
             TextTruncate = Enum.TextTruncate.None,
@@ -19476,14 +19737,14 @@ function Window:_buildMiniBar()
     end
     local gui = self.Gui
 
-    -- The island itself: a black pill hanging from the top of the screen. It
+    -- The island itself: a themed pill hanging from the top of the screen. It
     -- is a canvas so its rounded shape clips whatever layer is showing.
     local island = create("CanvasGroup", {
         Name = "Island",
         AnchorPoint = Vector2.new(0.5, 0),
         Position = UDim2.new(0.5, 0, 0, Mini.Top),
         Size = UDim2.fromOffset(Mini.Width, Mini.Height),
-        BackgroundColor3 = Color3.new(0, 0, 0),
+        BackgroundColor3 = Theme.Background,
         BorderSizePixel = 0,
         GroupTransparency = 1,
         Visible = false,
@@ -19514,12 +19775,12 @@ function Window:_buildMiniBar()
     end
 
     -- Compact: the logo leading, a live meter of running toggles trailing.
-    -- A graphite surface, lit from the top, so the pill isn't a flat black
-    -- slab; it fades with the layer, leaving the open card black.
+    -- A raised theme surface, lit from the top, so the pill isn't a flat
+    -- slab; it fades with the layer, leaving the open card on Background.
     local compact = create("CanvasGroup", {
         Name = "Compact",
         Size = UDim2.fromScale(1, 1),
-        BackgroundColor3 = Color3.fromRGB(30, 30, 34),
+        BackgroundColor3 = Theme.Surface2,
         BorderSizePixel = 0,
         Parent = island,
     })
@@ -19557,7 +19818,7 @@ function Window:_buildMiniBar()
         Text = self.Title,
         TextSize = 13,
         FontFace = Fonts.Bold,
-        TextColor3 = Color3.fromRGB(244, 244, 246),
+        TextColor3 = Theme.Text,
         Parent = compact,
     })
     local meter = create("Frame", {
@@ -19623,7 +19884,7 @@ function Window:_buildMiniBar()
         Text = "0s",
         TextSize = 12,
         FontFace = Fonts.Bold,
-        TextColor3 = Color3.fromRGB(220, 220, 224),
+        TextColor3 = Theme.Muted,
         TextTruncate = Enum.TextTruncate.None,
         LayoutOrder = 0,
         Parent = meter,
@@ -19654,7 +19915,7 @@ function Window:_buildMiniBar()
     })
     local face = create("ImageLabel", {
         Size = UDim2.fromOffset(48, 48),
-        BackgroundColor3 = Color3.fromRGB(38, 38, 41),
+        BackgroundColor3 = Theme.Surface3,
         BorderSizePixel = 0,
         Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(LocalPlayer.UserId) .. "&w=150&h=150",
         Parent = top,
@@ -19677,7 +19938,7 @@ function Window:_buildMiniBar()
         Size = UDim2.new(1, -150, 0, 20),
         TextSize = 15,
         FontFace = Fonts.Bold,
-        TextColor3 = Color3.fromRGB(244, 244, 246),
+        TextColor3 = Theme.Text,
         Parent = top,
     })
     self:_trackName(nameLabel, "Display")
@@ -19700,7 +19961,7 @@ function Window:_buildMiniBar()
         Text = "0s",
         TextSize = 20,
         FontFace = Fonts.Bold,
-        TextColor3 = Color3.fromRGB(244, 244, 246),
+        TextColor3 = Theme.Text,
         TextXAlignment = Enum.TextXAlignment.Right,
         Parent = top,
     })
@@ -19709,7 +19970,7 @@ function Window:_buildMiniBar()
         Position = UDim2.new(1, 0, 0, 27),
         Size = UDim2.fromOffset(90, 14),
         Text = "session",
-        TextSize = 11,
+        TextSize = 12,
         FontFace = Fonts.Regular,
         TextColor3 = Theme.Muted,
         TextXAlignment = Enum.TextXAlignment.Right,
@@ -19736,7 +19997,7 @@ function Window:_buildMiniBar()
             Text = "",
             TextSize = 20,
             FontFace = Fonts.Bold,
-            TextColor3 = Color3.fromRGB(244, 244, 246),
+            TextColor3 = Theme.Text,
             RichText = true,
             Parent = cell,
         })
@@ -19745,7 +20006,7 @@ function Window:_buildMiniBar()
             Position = UDim2.new(1, 0, 0, 6),
             Size = UDim2.fromOffset(70, 14),
             Text = caption,
-            TextSize = 10,
+            TextSize = 12,
             TextColor3 = Theme.Muted,
             TextXAlignment = Enum.TextXAlignment.Right,
             Parent = cell,
@@ -19754,7 +20015,7 @@ function Window:_buildMiniBar()
             AnchorPoint = Vector2.new(0, 1),
             Position = UDim2.new(0, 0, 1, -4),
             Size = UDim2.new(1, 0, 0, 3),
-            BackgroundColor3 = Color3.fromRGB(38, 38, 42),
+            BackgroundColor3 = Theme.Surface3,
             BorderSizePixel = 0,
             Parent = cell,
         })
@@ -19789,7 +20050,7 @@ function Window:_buildMiniBar()
         local chipFrame = create("Frame", {
             Size = UDim2.fromOffset(0, 30),
             AutomaticSize = Enum.AutomaticSize.X,
-            BackgroundColor3 = Color3.fromRGB(32, 32, 35),
+            BackgroundColor3 = Theme.Surface2,
             BorderSizePixel = 0,
             LayoutOrder = order,
             Parent = chips,
@@ -19820,7 +20081,7 @@ function Window:_buildMiniBar()
             Text = "",
             TextSize = 12,
             FontFace = Fonts.Bold,
-            TextColor3 = color or Color3.fromRGB(244, 244, 246),
+            TextColor3 = color or Theme.Text,
             TextTruncate = Enum.TextTruncate.None,
             LayoutOrder = 2,
             Parent = chipFrame,
@@ -19850,7 +20111,7 @@ function Window:_buildMiniBar()
         Text = "",
         TextSize = 12,
         FontFace = Fonts.Regular,
-        TextColor3 = Color3.fromRGB(200, 200, 206),
+        TextColor3 = Theme.Muted,
         RichText = true,
         Visible = false,
         LayoutOrder = 4,
@@ -19858,7 +20119,7 @@ function Window:_buildMiniBar()
     })
     local hint = label({
         Size = UDim2.new(1, 0, 0, 14),
-        TextSize = 11,
+        TextSize = 12,
         FontFace = Fonts.Regular,
         TextColor3 = Theme.Muted,
         LayoutOrder = 5,
@@ -20367,7 +20628,7 @@ function Window:_buildMiniBar()
         Name = "IslandBubble",
         AnchorPoint = Vector2.new(0.5, 0.5),
         Size = UDim2.fromOffset(0, 0),
-        BackgroundColor3 = Color3.fromRGB(26, 26, 30),
+        BackgroundColor3 = Theme.Surface2,
         BorderSizePixel = 0,
         Text = "",
         AutoButtonColor = false,

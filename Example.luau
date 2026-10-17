@@ -9009,6 +9009,11 @@ function Tab:Groupbox(opts, icon)
     local popped, popGeneration = false, 0
     local panel, panelScale, panelShadow, slot, stopPanel
     local dragStart, dragOrigin, dragMoved, suppressClick = nil, nil, false, false
+    -- PC only: dragging a docked header pops it out under the cursor.
+    local pendingPop
+    -- The panel's bottom-right grip resizes it; a set height scrolls the box.
+    local resizeStart, resizeOrigin, resizeHeight
+    local MIN_POP_WIDTH, MIN_POP_HEIGHT = 200, 80
     local animating = false
 
     local function layerScale()
@@ -9041,7 +9046,8 @@ function Tab:Groupbox(opts, icon)
         end
     end
 
-    local function popOut()
+    local finishPop
+    local function popOut(fromDrag)
         if popped or not canPop or not box.Parent or group._destroyed then
             return
         end
@@ -9128,19 +9134,109 @@ function Tab:Groupbox(opts, icon)
             ZIndex = 0,
             Parent = panel,
         })
+        -- The box sits in a scroller, so a panel resized shorter than the
+        -- box still reaches every row.
+        local holder = create("ScrollingFrame", {
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            CanvasSize = UDim2.new(),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            ScrollingDirection = Enum.ScrollingDirection.Y,
+            ScrollBarThickness = 3,
+            ScrollBarImageColor3 = Theme.Muted,
+            VerticalScrollBarInset = Enum.ScrollBarInset.None,
+            ElasticBehavior = Enum.ElasticBehavior.Never,
+            ZIndex = 1,
+            Parent = panel,
+        })
+        holder:SetAttribute("NoDrag", true)
+        -- Edges and corners all resize: each handle carries the sides it
+        -- moves (-1 left/top, 1 right/bottom, 0 untouched).
+        local edge = TOUCH and 12 or 7
+        local handles = {
+            { -1, -1 }, { 0, -1 }, { 1, -1 },
+            { -1, 0 }, { 1, 0 },
+            { -1, 1 }, { 0, 1 }, { 1, 1 },
+        }
+        local gripIcon
+        for _, dir in ipairs(handles) do
+            local dx, dy = dir[1], dir[2]
+            local handle = create("TextButton", {
+                AnchorPoint = Vector2.new((dx + 1) / 2, (dy + 1) / 2),
+                Position = UDim2.new((dx + 1) / 2, dx * edge / 2, (dy + 1) / 2, dy * edge / 2),
+                Size = UDim2.new(dx == 0 and 1 or 0, dx == 0 and -edge * 2 or edge * 2, dy == 0 and 1 or 0, dy == 0 and -edge * 2 or edge * 2),
+                BackgroundTransparency = 1,
+                Text = "",
+                AutoButtonColor = false,
+                ZIndex = (dx ~= 0 and dy ~= 0) and 21 or 20,
+                Parent = panel,
+            })
+            handle:SetAttribute("NoDrag", true)
+            if dx == 1 and dy == 1 then
+                gripIcon = create("ImageLabel", {
+                    AnchorPoint = Vector2.new(1, 1),
+                    Position = UDim2.new(1, -edge - 2, 1, -edge - 2),
+                    Size = UDim2.fromOffset(11, 11),
+                    BackgroundTransparency = 1,
+                    ImageColor3 = Theme.Muted,
+                    ImageTransparency = 0.35,
+                    Rotation = 90,
+                    ScaleType = Enum.ScaleType.Fit,
+                    ZIndex = 21,
+                    Parent = handle,
+                })
+                applyIcon(gripIcon, "move-diagonal-2")
+            end
+            handle.MouseEnter:Connect(function()
+                tween(gripIcon, { ImageColor3 = Theme.Text, ImageTransparency = 0 }, 0.15)
+            end)
+            handle.MouseLeave:Connect(function()
+                tween(gripIcon, { ImageColor3 = Theme.Muted, ImageTransparency = 0.35 }, 0.25)
+            end)
+            handle.InputBegan:Connect(function(input)
+                if not popped or not isPress(input) or not panel then
+                    return
+                end
+                local w, h = panel.Size.X.Offset, panel.Size.Y.Offset
+                local left = panel.Position.X.Offset - w / 2
+                local top = panel.Position.Y.Offset
+                resizeStart = Vector2.new(input.Position.X, input.Position.Y)
+                resizeOrigin = { left, top, left + w, top + h, dx, dy }
+                animating = false
+                closeInner()
+                window:_closePopups()
+            end)
+        end
         table.insert(window._popPanels, panel)
-        box.Parent = panel
+        box.Parent = holder
+        if group._popWidth then
+            width = math.max(group._popWidth, MIN_POP_WIDTH)
+            panel.Size = UDim2.fromOffset(width, height)
+        end
+        resizeHeight = group._popHeight
         window._controlsDirty = true
         setPopIcon(true)
 
         -- Lifts off the column: a spring up and out to its float spot, with
         -- the shadow deepening under it.
+        if fromDrag then
+            -- Picked up by a drag: no flight, it stays under the cursor.
+            panelScale.Scale = 1.025
+            panelShadow.ImageTransparency = 0.15
+            finishPop(current)
+            return
+        end
         local spot = clampSpot(group._popSpot or Vector2.new(from.X + width / 2 + 22, from.Y - 14), width, height)
         animating = true
         panelScale.Scale = 0.97
         tween(panel, { Position = UDim2.fromOffset(spot.X, spot.Y) }, 0.5, Enum.EasingStyle.Quint)
         tween(panelScale, { Scale = 1 }, 0.55, Enum.EasingStyle.Back)
         tween(panelShadow, { ImageTransparency = 0.35 }, 0.4)
+        finishPop(current)
+    end
+
+    function finishPop(current)
         task.delay(0.5, function()
             if popGeneration == current then
                 animating = false
@@ -9154,17 +9250,25 @@ function Tab:Groupbox(opts, icon)
             if panel ~= thisPanel or not thisPanel.Parent then
                 return
             end
+            -- A set height is the panel's height: a taller box scrolls in it,
+            -- a shorter one stretches to fill it (unless folded).
+            local fixed = not collapsed and resizeHeight or nil
+            local minSize = UDim2.new(1, 0, 0, fixed or 0)
+            if box.Size ~= minSize then
+                box.Size = minSize
+            end
             local boxHeight = box.AbsoluteSize.Y / layerScale()
-            if math.abs(thisPanel.Size.Y.Offset - boxHeight) > 0.5 then
-                thisPanel.Size = UDim2.fromOffset(thisPanel.Size.X.Offset, boxHeight)
+            local panelHeight = fixed or boxHeight
+            if not resizeStart and math.abs(thisPanel.Size.Y.Offset - panelHeight) > 0.5 then
+                thisPanel.Size = UDim2.fromOffset(thisPanel.Size.X.Offset, panelHeight)
             end
             thisPanel.Visible = box.Visible
             if slot then
                 slot.Visible = box.Visible
             end
-            if not animating and not dragStart then
+            if not animating and not dragStart and not resizeStart then
                 local position = Vector2.new(thisPanel.Position.X.Offset, thisPanel.Position.Y.Offset)
-                local clamped = clampSpot(position, thisPanel.Size.X.Offset, boxHeight)
+                local clamped = clampSpot(position, thisPanel.Size.X.Offset, panelHeight)
                 if (clamped - position).Magnitude > 0.5 then
                     thisPanel.Position = UDim2.fromOffset(clamped.X, clamped.Y)
                 end
@@ -9180,6 +9284,8 @@ function Tab:Groupbox(opts, icon)
         group._popped = false
         popGeneration += 1
         dragStart, dragMoved, suppressClick = nil, false, false
+        resizeStart, pendingPop = nil, nil
+        box.Size = UDim2.new(1, 0, 0, 0)
         closeInner()
         window:_closePopups()
         local oldPanel, oldSlot, oldStop, oldScale, oldShadow = panel, slot, stopPanel, panelScale, panelShadow
@@ -9203,7 +9309,7 @@ function Tab:Groupbox(opts, icon)
                 table.remove(window._popPanels, index)
             end
             -- Back into the column, unless it was popped again meanwhile.
-            if box.Parent == oldPanel then
+            if box:IsDescendantOf(oldPanel) then
                 if oldSlot and oldSlot.Parent and not group._destroyed then
                     box.Parent = oldSlot.Parent
                     box.LayoutOrder = oldSlot.LayoutOrder
@@ -9212,7 +9318,7 @@ function Tab:Groupbox(opts, icon)
             if oldSlot then
                 oldSlot:Destroy()
             end
-            if box.Parent ~= oldPanel then
+            if not box:IsDescendantOf(oldPanel) then
                 oldPanel:Destroy()
             end
             animating = false
@@ -9249,6 +9355,10 @@ function Tab:Groupbox(opts, icon)
 
     -- Dragging the floating panel by its header.
     header.InputBegan:Connect(function(input)
+        if not popped and canPop and not TOUCH and isPress(input) then
+            pendingPop = Vector2.new(input.Position.X, input.Position.Y)
+            return
+        end
         if not popped or not isPress(input) or not panel then
             return
         end
@@ -9258,7 +9368,55 @@ function Tab:Groupbox(opts, icon)
         suppressClick = false
     end)
     window:_listen("Changed", function(input)
-        if not dragStart or not panel or not isMove(input) then
+        if not isMove(input) then
+            return
+        end
+        if resizeStart and panel then
+            local delta = (Vector2.new(input.Position.X, input.Position.Y) - resizeStart) / layerScale()
+            local view = window._popLayer.AbsoluteSize / layerScale()
+            local boxHeight = box.AbsoluteSize.Y / layerScale()
+            local left, top, right, bottom, dx, dy = table.unpack(resizeOrigin)
+            local maxWidth = math.max(view.X - 16, MIN_POP_WIDTH)
+            local minHeight = MIN_POP_HEIGHT
+            local maxHeight = math.max(view.Y - 16, MIN_POP_HEIGHT)
+            -- The dragged side moves; the opposite one stays put.
+            if dx == 1 then
+                right = left + math.clamp(right - left + delta.X, MIN_POP_WIDTH, maxWidth)
+            elseif dx == -1 then
+                left = right - math.clamp(right - left - delta.X, MIN_POP_WIDTH, maxWidth)
+            end
+            if dy == 1 then
+                bottom = top + math.clamp(bottom - top + delta.Y, minHeight, maxHeight)
+            elseif dy == -1 then
+                top = bottom - math.clamp(bottom - top - delta.Y, minHeight, maxHeight)
+            end
+            local newHeight = bottom - top
+            if dy ~= 0 then
+                resizeHeight = newHeight
+            end
+            panel.Size = UDim2.fromOffset(right - left, newHeight)
+            panel.Position = UDim2.fromOffset((left + right) / 2, top)
+            window._controlsDirty = true
+            return
+        end
+        if pendingPop and not popped then
+            local delta = Vector2.new(input.Position.X, input.Position.Y) - pendingPop
+            if delta.Magnitude < 2 then
+                return
+            end
+            local start = pendingPop
+            pendingPop = nil
+            window:_popoutLayer()
+            local origin = toLayer(box.AbsolutePosition) + Vector2.new(box.AbsoluteSize.X / layerScale() / 2, 0)
+            popOut(true)
+            if not popped or not panel then
+                return
+            end
+            dragStart, dragOrigin = start, origin
+            dragMoved, suppressClick = true, true
+            animating = false
+        end
+        if not dragStart or not panel then
             return
         end
         local delta = Vector2.new(input.Position.X, input.Position.Y) - dragStart
@@ -9277,7 +9435,19 @@ function Tab:Groupbox(opts, icon)
         panel.Position = UDim2.fromOffset(spot.X, spot.Y)
     end, group)
     window:_listen("Ended", function(input)
-        if not dragStart or not isPress(input) then
+        if not isPress(input) then
+            return
+        end
+        pendingPop = nil
+        if resizeStart then
+            resizeStart = nil
+            if panel then
+                group._popWidth = panel.Size.X.Offset
+                group._popHeight = resizeHeight
+                group._popSpot = Vector2.new(panel.Position.X.Offset, panel.Position.Y.Offset)
+            end
+        end
+        if not dragStart then
             return
         end
         dragStart = nil

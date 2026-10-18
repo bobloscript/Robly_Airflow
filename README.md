@@ -608,7 +608,7 @@ Group:CreateStatus({ Name = "Shield", Value = "Up", Style = "Badge", Tone = Colo
 
 | Style | Looks like |
 | --- | --- |
-| `Plain` | `Floor: 3`, muted key then the value. The default. |
+| `Plain` | `Floor: 3`, muted key then the value. The default. Long values wrap and grow the line. |
 | `Row` | Key on the left, value on the right. |
 | `Badge` | Value in a pill tinted by `Tone`. |
 | `Dot` | A pulsing dot tinted by `Tone`, then key and value. |
@@ -630,6 +630,7 @@ A changed value flashes the accent colour briefly. With `Update`, the function r
 | `Prefix` / `Suffix` | string | — | Text around the value. |
 | `Placeholder` | string | `"-"` | Shown while the value is `nil`. |
 | `Update` / `UpdateRate` | function / number | — / `1` | Refresh on a timer. |
+| `Wrap` | boolean | `true` | `Plain` only. `false` keeps the value on one line. |
 | `Pin` | boolean | `false` | Also show it on the minimized island. |
 | `Pulse` / `Flash` | boolean | `true` | The `Dot` pulse and the change flash. |
 
@@ -641,6 +642,7 @@ A changed value flashes the accent colour briefly. With `Update`, the function r
 | `SetTone(tone)` / `SetName(name)` | Recolour the tint or rename. |
 | `SetColor(color)` | Colour the whole value; `nil` goes back to the text colour. |
 | `SetUpdateRate(seconds)` | When `Update` is set. |
+| `SetWrap(enabled)` | `Plain` only. `false` stops wrapping, `true` turns it back on. |
 | `Tab:CreateStatuses(entries, shared?)` | Several at once. Entries are names or option tables; `shared` fills missing options. Returns the handles by name. |
 
 ---

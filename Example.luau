@@ -11182,33 +11182,47 @@ function Tab:Status(opts)
     end
 
     if style == "Plain" then
-        create("UIListLayout", {
-            FillDirection = Enum.FillDirection.Horizontal,
-            VerticalAlignment = Enum.VerticalAlignment.Center,
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            Padding = UDim.new(0, 5),
-            Parent = holder,
-        })
+        -- The value sits after the key and wraps beneath itself, growing the row.
+        frame.AutomaticSize = Enum.AutomaticSize.Y
+        holder.AutomaticSize = Enum.AutomaticSize.Y
         keyLabel = label({
-            Size = UDim2.new(0, 0, 1, 0),
+            Size = UDim2.new(0, 0, 0, height),
             AutomaticSize = Enum.AutomaticSize.X,
             TextSize = 14,
             FontFace = Fonts.Regular,
             TextColor3 = Theme.Text,
             TextTransparency = 0.4,
             TextTruncate = Enum.TextTruncate.None,
-            LayoutOrder = 1,
+            TextYAlignment = Enum.TextYAlignment.Top,
             Parent = holder,
         })
         valueLabel = label({
-            Size = UDim2.new(0, 0, 1, 0),
-            AutomaticSize = Enum.AutomaticSize.X,
             TextSize = 14,
             TextColor3 = Theme.Text,
             TextTruncate = Enum.TextTruncate.None,
-            LayoutOrder = 2,
+            TextYAlignment = Enum.TextYAlignment.Top,
             Parent = holder,
         })
+        local wrap = opts.Wrap ~= false
+        local function place()
+            local x = keyLabel.TextBounds.X + 5
+            valueLabel.Position = UDim2.fromOffset(x, 0)
+            if wrap then
+                valueLabel.Size = UDim2.new(1, -x, 0, height)
+                valueLabel.AutomaticSize = Enum.AutomaticSize.Y
+            else
+                valueLabel.Size = UDim2.new(0, 0, 0, height)
+                valueLabel.AutomaticSize = Enum.AutomaticSize.X
+            end
+            valueLabel.TextWrapped = wrap
+        end
+        keyLabel:GetPropertyChangedSignal("TextBounds"):Connect(place)
+        place()
+        -- false keeps the value on one line; true lets it wrap again.
+        function handle:SetWrap(value)
+            wrap = value ~= false
+            place()
+        end
     elseif style == "Stat" then
         keyLabel = label({
             Position = UDim2.fromOffset(0, 1),

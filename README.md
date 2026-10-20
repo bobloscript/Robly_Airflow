@@ -1720,7 +1720,7 @@ Tab:CreateButton({
 | `132608042600488` / `"132608042600488"` / `"rbxassetid://…"` / `"rbxthumb://…"` | Your own image, shown in its own colours. |
 | `{ Image, RectOffset, RectSize, Tint }` | Your own image or a sprite. `Tint = true` lets the theme colour it like a lucide icon. |
 
-Custom images keep their colours through theme changes and are drawn 35% larger than their slot, since uploaded images usually carry transparent padding. A table icon can set its own `Scale` (`Scale = 1` for the exact slot size). On tabs and sub tabs, a custom icon shows the selection by going from dimmed to full opacity instead of changing colour. The default bird logo is still tinted with the accent.
+Custom images keep their colours through theme changes and are drawn 35% larger than their slot, since uploaded images usually carry transparent padding. A table icon can set its own `Scale` (`Scale = 1` for the exact slot size). On tabs and sub tabs, a custom icon shows the selection by going from dimmed to full opacity instead of changing colour. The default logo (the robscript.com eye) keeps its own colours; `Assets.LogoSmall` is its simplified version for the Dynamic Island and the open button. Set `Airflow.Assets.LogoTint = true` to tint it with the accent instead.
 
 Names resolve through the [Footagesus/Icons](https://github.com/Footagesus/Icons) list, fetched once on first use; `Airflow:PreloadIcons()` fetches it up front.
 

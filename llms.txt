@@ -117,7 +117,7 @@ Theme keys: `Background`, `Surface`, `Surface2`, `Surface3`, `Stroke`, `StrokeHo
 
 ## Window
 
-Useful options: `Size` (UDim2), `MinSize` / `MaxSize` (Vector2), `Icon`, `Theme`, `UIScale` (0.6 to 1.5), `AdaptiveSize` (default true: scale with screen resolution), `Density` (`"Compact"`, `"Default"`, `"Comfortable"`), `Backdrop` (`{ Weather = "Snow" }` or false), `Search`, `Profile`, `Loading`, `Disclaimer`, `ToggleButton`, `IslandDraggable` (default true).
+Useful options: `Size` (UDim2), `MinSize` / `MaxSize` (Vector2), `Logo` (`"Robscript"` default or `"GirlMaker"`; also `Airflow:SetLogo(name)`), `Icon`, `Theme`, `UIScale` (0.6 to 1.5), `AdaptiveSize` (default true: scale with screen resolution), `Density` (`"Compact"`, `"Default"`, `"Comfortable"`), `Backdrop` (`{ Weather = "Snow" }` or false), `Search`, `Profile`, `Loading`, `Disclaimer`, `ToggleButton`, `IslandDraggable` (default true).
 
 Useful methods: `Notify({ Title, Content, Type = "Success", Duration })`, `Confirm({ Title, Content, ConfirmText, Callback })`, `Dialog({ Buttons = { … } })`, `Toggle(open?)`, `Minimize()`, `Restore()`, `SelectTab(tab)`, `SetUIScale(n)`, `SetAdaptiveSize(bool)`, `SetTheme` (on `Airflow`), `SaveConfig` / `LoadConfig` / `ListConfigs`, `ResetIslandPosition()`, `Destroy()`.
 

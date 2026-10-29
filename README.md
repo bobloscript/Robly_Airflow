@@ -130,6 +130,7 @@ The sidebar is an inset rounded rail: the logo on top, then one tile per tab wit
 | --- | --- | --- | --- |
 | `Name` | string | `"Airflow"` | Title in the sidebar header. Also names the ScreenGui. |
 | `LoadingSubtitle` | string | — | Small line under the title. |
+| `Logo` | string | `"Robscript"` | Built-in logo preset: `"Robscript"` (the robscript.com eye) or `"GirlMaker"` (the GirlMaker sparkle). Same as calling `Airflow:SetLogo` before the window. |
 | `Icon` | string \| number \| table | OuroFlow mark (theme tinted) | Lucide name, asset id, or `{ Image, RectOffset, RectSize, Tint }`. See [Icons](#icons). |
 | `ToggleUIKeybind` | string \| KeyCode | `"RightControl"` | Hides and shows the window. `"RightShift"`, `"LeftAlt"`, `"Insert"`, `"F1"`, or an `Enum.KeyCode`. |
 | `Size` | UDim2 | `760 × 520` | Starting size. |
@@ -1722,6 +1723,14 @@ Tab:CreateButton({
 
 Custom images keep their colours through theme changes and are drawn 35% larger than their slot, since uploaded images usually carry transparent padding. A table icon can set its own `Scale` (`Scale = 1` for the exact slot size). On tabs and sub tabs, a custom icon shows the selection by going from dimmed to full opacity instead of changing colour. The default logo (the robscript.com eye) keeps its own colours; `Assets.LogoSmall` is its simplified version for the Dynamic Island and the open button. Set `Airflow.Assets.LogoTint = true` to tint it with the accent instead.
 
+Two logos are built in: `Robscript` (default) and `GirlMaker`, for the GirlMaker scripts. Pick one with the `Logo` window option or `Airflow:SetLogo(name)` before creating the window; the name is case-insensitive and both sizes (sidebar and Dynamic Island) switch together. An explicit `Icon` still wins over the preset.
+
+```lua
+local Window = Airflow:CreateWindow({ Name = "GirlMaker Hub", Logo = "GirlMaker" })
+-- or
+Airflow:SetLogo("GirlMaker")
+```
+
 Names resolve through the [Footagesus/Icons](https://github.com/Footagesus/Icons) list, fetched once on first use; `Airflow:PreloadIcons()` fetches it up front.
 
 ---
@@ -1806,6 +1815,7 @@ The theme manager is a groupbox with a **Preset** picker, **Weather** and **Weat
 
 | Member | Description |
 | --- | --- |
+| `Airflow:SetLogo(name)` | Switch the built-in logo (`"Robscript"`, `"GirlMaker"`) for windows created after it. Returns `false` for an unknown name. |
 | `Airflow:SetTheme(nameOrTable, instant?)` | Apply a preset or colours live. |
 | `Airflow:GetTheme()` | Copy of the current colours. |
 | `Airflow:SetDefaultTheme(nameOrTable)` / `GetDefaultTheme()` | The script's starting theme. Call it before or after `CreateWindow`; it applies right away unless the player saved their own default. |

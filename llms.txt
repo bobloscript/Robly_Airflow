@@ -1,6 +1,6 @@
 # Airflow UI (OuroFlow)
 
-> Airflow UI is a single-file Luau UI library for Roblox executor scripts: a window with a sidebar of tabs, sub tabs, two-column collapsible groupboxes and fourteen elements (toggles, sliders, dropdowns, statuses, tables and more), plus configs, cloud configs, live themes, coloured text, window-wide search and a draggable Dynamic Island minimize. This file is a guide for language models writing scripts with it. Follow it exactly; the README holds every option.
+> Airflow UI is a single-file Luau UI library for Roblox executor scripts: a window with a sidebar of tabs, sub tabs, two-column collapsible groupboxes and fourteen elements (toggles, sliders, dropdowns, statuses, tables and more), plus configs, cloud configs, live themes, live language switching, coloured text, window-wide search and a draggable Dynamic Island minimize. This file is a guide for language models writing scripts with it. Follow it exactly; the README holds every option.
 
 Load it once, build the window, add tabs, put groupboxes on tabs (or sub tabs), and put elements in groupboxes. Every element with a `Flag` is saved by configs. Everything returns a handle with `Set` / `Get` (where it has a value), `SetVisible`, `IsVisible`, `SetDisabled`, `SetDependsOn`, `SetTooltip` and `Destroy`.
 
@@ -129,6 +129,14 @@ Minimizing folds the window into a Dynamic Island at the top of the screen. Play
 - Presets: Midnight (default), Nebula, Synthwave, Sakura, Velvet, Rose, Crimson, Sunset, Amber, Gold, Cyber, Toxic, Matcha, Emerald, Aurora, Ocean, Frost, Abyss, Mono, Halloween, Haunted, Christmas, Valentine, Lunar, Tropical, Dracula, Coffee.
 - `Tab:CreateThemeManager({ Side = "Right" })` gives players presets, weather, dim, transparency, drag skeleton, adaptive size, UI scale, density, background image and colour pickers. All of it is saved in configs under the hidden `__Theme` flag.
 - Read colours from `Airflow.Theme.Accent` and so on; don't cache them across theme changes.
+
+## Languages
+
+- Write every text in English and add one dictionary per language before `CreateWindow`: `Airflow:AddLanguage("ru", { Name = "Русский", Flag = "ru", Strings = { ["Auto Farm"] = "Автофарм", ["# kills"] = "Убийств: #" } })`. Keys are the texts exactly as passed to the library; `#` stands for any number.
+- That alone adds a flag button to the header that switches every text live. Never rebuild the window, re-run the script or build your own language toggle to change language.
+- Values are not translated: options, flags and configs keep the English strings. Compare against the English value in callbacks.
+- For text you assemble yourself use `Airflow:T("Sold %d items", n)`; `Airflow:OnLanguageChanged(function(code) end)` runs after a switch; `Airflow:SetLanguage("ru")` switches from code.
+- Window options: `Language = "ru"` (starting language), `AutoLanguage = false`, `LanguageButton = false`.
 
 ## Optional
 

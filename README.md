@@ -38,7 +38,7 @@ Settings:CreateConfigManager({ Side = "Left" })
 Settings:CreateThemeManager({ Side = "Right" })
 ```
 
-`Example.luau` is a full showcase of every element; `Source.luau` is the same library, minified.
+`Example.luau` is a full showcase of every element; `Source.luau` is the same library, minified. After editing the library part of `Example.luau`, run `python3 build.py Example.luau Source.luau` to rebuild it.
 
 ### Highlights
 
@@ -47,6 +47,7 @@ Settings:CreateThemeManager({ Side = "Right" })
 - **Adaptive size.** The window scales with the screen, so it looks the same on 1080p, 1440p and 4K. Touch devices get larger hit areas automatically.
 - **Coloured text.** `<Success>`, `<Warning>` and the other theme tags work in statuses, tables, progress bars and labels, and repaint when the theme changes.
 - **Window-wide search.** Jumps to any control in any tab and lights it up.
+- **Live languages.** Add a dictionary per language and a flag button in the header switches every text instantly, without reloading the script.
 - **Configs that just work.** Flags, autoload, share codes, a config manager and a cloud configs browser your backend can drive.
 
 ### Contents
@@ -58,7 +59,7 @@ Settings:CreateThemeManager({ Side = "Right" })
 | [Tab](#tab) · [Sub Tab](#sub-tab) | [Dropdown](#dropdown) · [Order List](#order-list) | [Cloud Configs](#cloud-configs) | [Icons](#icons) |
 | [Groupbox](#groupbox) | [Input](#input) · [Keybind](#keybind) · [Color Picker](#color-picker) | [Notification](#notification) | [Fonts](#fonts) |
 | [Visibility](#visibility) · [Tooltips](#tooltips) | [Label](#label) · [Paragraph](#paragraph) · [Section](#section) · [Divider](#divider) | [Confirm](#confirm) | |
-| [Search](#search) | [Status](#status) · [Status List](#status-list) · [Progress](#progress) | | |
+| [Search](#search) · [Languages](#languages) | [Status](#status) · [Status List](#status-list) · [Progress](#progress) | | |
 | | [Image](#image) · [Viewport](#viewport) · [Table](#table) · [Log](#log) | | |
 
 ---
@@ -131,6 +132,9 @@ The sidebar is an inset rounded rail: the logo on top, then one tile per tab wit
 | `Name` | string | `"Airflow"` | Title in the sidebar header. Also names the ScreenGui. |
 | `LoadingSubtitle` | string | — | Small line under the title. |
 | `Logo` | string | `"Robscript"` | Built-in logo preset: `"Robscript"` (the robscript.com eye) or `"GirlMaker"` (the GirlMaker sparkle). Same as calling `Airflow:SetLogo` before the window. |
+| `Language` | string | — | Language the window starts in, e.g. `"ru"`. The language the player picked last time wins over it. See [Languages](#languages). |
+| `AutoLanguage` | boolean | `true` | Start in the language of the player's Roblox client when the script has added it. |
+| `LanguageButton` | boolean | automatic | The flag button in the header. Shown once the script adds a language; `false` hides it, `true` shows it even with only the built-in languages. |
 | `Icon` | string \| number \| table | OuroFlow mark (theme tinted) | Lucide name, asset id, or `{ Image, RectOffset, RectSize, Tint }`. See [Icons](#icons). |
 | `ToggleUIKeybind` | string \| KeyCode | `"RightControl"` | Hides and shows the window. `"RightShift"`, `"LeftAlt"`, `"Insert"`, `"F1"`, or an `Enum.KeyCode`. |
 | `Size` | UDim2 | `760 × 520` | Starting size. |
@@ -510,6 +514,67 @@ It is bare text with a thin dark outline, no background, with the icon and title
 ## Search
 
 The search box in the top-right searches the whole window as you type: tabs, sub tabs, groupboxes and controls from every tab, best matches first (names that start with the query, then word starts). Picking a result opens its tab and sub tab, expands a collapsed groupbox, scrolls the control to the middle of the page and lights it up: the control pops, a soft accent glow blooms around it, a sheen sweeps across it and a bright spot runs round its border, then it breathes once and fades. Switching tabs clears the box.
+
+---
+
+## Languages
+
+Write the script in one language and add a dictionary for each other one. The key is the text exactly as you pass it to the library, the value is what to show instead. Switching is live: every text on screen is repainted in place, nothing is rebuilt and nothing in your script restarts.
+
+```lua
+Airflow:AddLanguage("ru", {
+    Name = "Русский",          -- shown in the language list
+    Flag = "ru",               -- the flag on the header button
+    Strings = {
+        ["Auto Farm"] = "Автофарм",
+        ["Range"] = "Дальность",
+        ["Bandit"] = "Бандит",                 -- dropdown options too
+        ["# kills"] = "Убийств: #",            -- "#" stands for any number
+        ["Sold %d items"] = "Продано %d шт.",  -- for Airflow:T
+    },
+})
+
+local Window = Airflow:CreateWindow({ Name = "My Hub" })
+```
+
+Once a language is added, a **flag button** appears in the header between the search box and minimize. With two languages a click swaps them; with three or more it opens a short list. The choice is saved next to the configs (when the executor has file functions) and restored on the next run. On the first run the window starts in the language of the player's Roblox client if you added it (`AutoLanguage = false` turns that off), otherwise in the `Language` option, otherwise in the script's own language.
+
+What gets translated:
+
+- Every text the library draws: tab, sub tab, groupbox and element names, descriptions, tooltips, dropdown options, status keys and values, table headers and cells, notifications, dialogs. Values are untouched: a dropdown option `"Bandit"` still reaches callbacks, flags and configs as `"Bandit"`, so configs work across languages.
+- The library's own texts (Home, search, config manager, theme manager, cloud configs). English and Russian are built in; add the same keys to your dictionary to translate them to another language or to reword them.
+- Text set later (`Status:Set`, `Label:Set`, `Update` functions) goes through the dictionary too, so `"<Success>Farming</Success>"` and `"12 kills"` work with the keys `"Farming"` and `"# kills"`.
+- Around a key, leading and trailing spaces and `. , : ! ?` are ignored (`"Config Name:"` uses the key `"Config Name"`), upper-case captions use the normal-case key, and lists and paths (`"Wolf, Bandit"`, `"Main  ›  Farming"`) are translated piece by piece. A text that isn't in the dictionary stays as it is.
+- Search, dropdown search and the feature list match both the shown text and the script's own name, in any letter case, Cyrillic included.
+
+What the player types (inputs, config names) is never translated.
+
+For strings your script assembles itself, translate at the moment you build them:
+
+```lua
+Window:Notify({ Title = Airflow:T("Sold %d items", count) })   -- extra arguments go through string.format
+
+Airflow:OnLanguageChanged(function(code)   -- returns a function that stops listening
+    print("now in", code)
+end)
+```
+
+The flag is drawn from stripes for simple flags (`ru`, `ua`, `de`, `pl`, `id`, `nl`, `es`, `fr`, `it`, `ro`, `be`, `ie`, `bg`, `hu`, `lt`, `ee`, `at`, `jp`). Any other country code is downloaded once from flagcdn.com, which needs `writefile` and `getcustomasset`; until it arrives, and without those functions, the button shows the language code (`EN`). `Flag` also takes an image asset id or link, or your own stripes: `Flag = { "#FFFFFF", "#0039A6", "#D52B1E" }` (add `Vertical = true` for vertical ones). The built-in English uses `Flag = "us"`; change it with `Airflow:AddLanguage("en", { Flag = "gb" })`.
+
+**Cost.** A text is looked up once when it is set: one table read for a known text, a few short string scans for an unknown one (about a microsecond). Nothing runs per frame. Switching walks the texts that exist once; a hub with a few thousand of them switches within a frame or two.
+
+### Handle
+
+| Member | Description |
+| --- | --- |
+| `Airflow:AddLanguage(code, { Name, Flag, Strings })` | Add a language, or add to one that exists. Texts on screen update right away if it is the current one. |
+| `Airflow:AddTranslations(code, strings)` | Short for adding only `Strings`. |
+| `Airflow:SetLanguage(code)` | Switch live. Takes a code (`"ru"`, `"ru-ru"`) or a language name. Returns `false` for a language that was never added. |
+| `Airflow:GetLanguage()` / `Airflow.Language` | The current code. |
+| `Airflow:GetLanguages()` | The added languages in order, as `{ Code, Name, Flag }`. |
+| `Airflow:T(text, ...)` | The text in the current language; extra arguments are formatted in. |
+| `Airflow:OnLanguageChanged(handler)` | `handler(code)` after every switch. Returns a disconnect function. |
+| `Window.LanguageButton` | The flag button, if you want to move or hide it yourself. |
 
 ---
 

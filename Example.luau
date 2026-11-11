@@ -431,6 +431,8 @@ local Assets = Library.Assets
 local EMBEDDED_LOGO = {
     Big = "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",
     Small = "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",
+    GirlBig = "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t9WxIskYBUCBjTwd+MMJNPG0Nv4sNgVA0bmP/zTA63ANQTJNAVB0SWn8g7iUKAAKTgFQeL94DhjPMt4BPhj6SQMKkgxRABTcyPbdm8fx1Rest3OoASVJhigA4rBh7F/xcXxH8kYBEAV7fuxfGcd3JHcUADFIqxvH/iUbx3ckbxQAMdiXbgbGcj4/SOs7WgAUAQVABIYv5tkYBrRtsVXXN+M1YxKYAiAa6Rim9GM5VvJMARALp/ZBPZZjJdcUALFIxjCox3Ks5JoCIBZ7qpuASg1HVmD3liZUJBmgAIiE9XYOAC8d80Bn28jqQYmAAiAuLxzzCGNTUyqRTFAAxMTZWsNRmv5HRAEQE/NjB4DVFBJSEAqAmJRrGNz7awgJKQy9FyAijhvL+94Dph3hkPdZe+XxegtwPDQDiIhhjvv2oxyyRYM/LgqA2Bz1HF/T/9goAGJztACo7S6BFIgCIDrJkW/zJSXdAoyMAiA2g+Uj/8qXhrQHQGQUAJGxexb+HHhrlD/ttNs73wtQkgSkAIjTaFN9Tf8jpACI02inAboAGCEFQIxGuxNgY9kyTIpCARCjlBdH+exoC4SkoBQAMapO2gYcvOLPqbYde68AKRwFQITsuwt2A7sO+mTHyGcSGQVAvA6a8h/1+QApMAVArOygADCd/8dKARArtwODPvXDLwpKFBQAsTr4seBSSTOASCkAYlVpPXDff7CsGYBIbHz5up/68nU7Q9ch4ZRDFyABOdsxS0OXIeEoAGJmvh1QAERMARAz50USBUDMFAAxS5LteKoAiJgCIGa2f5s2hhcRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERmL/wes2G34jsfc2gAAAABJRU5ErkJggg==",
+    GirlSmall = "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",
 }
 
 local function decodeBase64(data)
@@ -454,6 +456,9 @@ local function decodeBase64(data)
     end
     return table.concat(out)
 end
+
+-- Logo presets by name, for the Logo window option and Library:SetLogo.
+Assets.Logos = { Robscript = { Logo = Assets.Logo } }
 
 pcall(function()
     if type(writefile) ~= "function" or typeof(getcustomasset) ~= "function" then
@@ -481,6 +486,11 @@ pcall(function()
         Assets.Logo = logo
         Assets.LogoSmall = load("RobscriptLogoSmall.png", EMBEDDED_LOGO.Small)
         Assets.LogoTint = false
+        Assets.Logos.Robscript = { Logo = Assets.Logo, LogoSmall = Assets.LogoSmall }
+    end
+    local girl = load("GirlMakerLogo.png", EMBEDDED_LOGO.GirlBig)
+    if girl then
+        Assets.Logos.GirlMaker = { Logo = girl, LogoSmall = load("GirlMakerLogoSmall.png", EMBEDDED_LOGO.GirlSmall) }
     end
 end)
 local Fonts = Library.Fonts
@@ -699,6 +709,622 @@ local function tween(object, props, duration, style, direction, raw)
     return t
 end
 
+-- Languages: every text the library draws is remembered with the string it
+-- was given (its source text), and shown through the active language's
+-- dictionary. Library:SetLanguage swaps the dictionary and repaints the
+-- texts that are on screen, so nothing is rebuilt and the script keeps
+-- running. Values stay what the script passed: a dropdown option "Wolf"
+-- still reaches callbacks and configs as "Wolf", whatever it is shown as.
+--
+-- A lookup is one table read when a text changes; texts that are not in the
+-- dictionary cost a couple of string scans and stay as they are.
+Library.Languages = {}
+Library.Language = "en"
+Library._lang = {
+    Order = {},
+    Bound = {},
+    Orphans = {},
+    Listeners = {},
+    FlagCache = {},
+    Count = 0,
+    SweepAt = 3000,
+    Active = nil,
+    Wanted = nil,
+    Used = false,
+    -- Flags made of plain stripes are drawn, so they need no download.
+    -- Anything else is fetched once from flagcdn.com by its country code.
+    Flags = {
+        ru = { "#FFFFFF", "#0039A6", "#D52B1E" },
+        ua = { "#0057B7", "#FFD700" },
+        de = { "#000000", "#DD0000", "#FFCE00" },
+        pl = { "#FFFFFF", "#DC143C" },
+        id = { "#FF0000", "#FFFFFF" },
+        nl = { "#AE1C28", "#FFFFFF", "#21468B" },
+        es = { "#AA151B", "#F1BF00", "#F1BF00", "#AA151B" },
+        bg = { "#FFFFFF", "#00966E", "#D62612" },
+        hu = { "#CE2939", "#FFFFFF", "#477050" },
+        lt = { "#FDB913", "#006A44", "#C1272D" },
+        ee = { "#0072CE", "#000000", "#FFFFFF" },
+        at = { "#ED2939", "#FFFFFF", "#ED2939" },
+        fr = { Vertical = true, "#0055A4", "#FFFFFF", "#EF4135" },
+        it = { Vertical = true, "#009246", "#FFFFFF", "#CE2B37" },
+        ro = { Vertical = true, "#002B7F", "#FCD116", "#CE1126" },
+        be = { Vertical = true, "#000000", "#FAE042", "#ED2939" },
+        ie = { Vertical = true, "#169B62", "#FFFFFF", "#FF883E" },
+        jp = { "#FFFFFF", Dot = "#BC002D" },
+    },
+}
+
+do
+    local Lang = Library._lang
+    local Bound = Lang.Bound
+    local find, gsub, sub, byte, char = string.find, string.gsub, string.sub, string.byte, string.char
+
+    -- string.upper and string.lower only know ASCII; these also handle
+    -- Cyrillic, which captions and the search box need.
+    function Lang.Upper(text)
+        text = string.upper(text)
+        if not find(text, "[\208\209]") then
+            return text
+        end
+        return (gsub(text, "[\208\209][\128-\191]", function(pair)
+            local lead, tail = byte(pair, 1, 2)
+            if lead == 208 and tail >= 176 then
+                return char(208, tail - 32)
+            elseif lead == 209 and tail <= 143 then
+                return char(208, tail + 32)
+            elseif lead == 209 and tail <= 159 then
+                return char(208, tail - 16)
+            end
+            return nil
+        end))
+    end
+
+    function Lang.Lower(text)
+        text = string.lower(text)
+        if not find(text, "\208", 1, true) then
+            return text
+        end
+        return (gsub(text, "\208[\128-\175]", function(pair)
+            local tail = byte(pair, 2)
+            if tail >= 160 then
+                return char(209, tail - 32)
+            elseif tail >= 144 then
+                return char(208, tail + 32)
+            end
+            return char(209, tail + 16)
+        end))
+    end
+
+    -- One piece of plain text: the exact string, then the same without the
+    -- spaces and punctuation around it, with its numbers as "#", or as an
+    -- upper-case caption.
+    local function plain(lang, text)
+        local strings = lang.Strings
+        local hit = strings[text]
+        if hit ~= nil then
+            return hit
+        end
+        local first, last = 1, #text
+        while first <= last do
+            local code = byte(text, first)
+            if code ~= 32 and code ~= 10 then
+                break
+            end
+            first += 1
+        end
+        while last >= first do
+            local code = byte(text, last)
+            -- space, newline, ! , . : ?
+            if code ~= 32 and code ~= 10 and code ~= 33 and code ~= 44 and code ~= 46 and code ~= 58 and code ~= 63 then
+                break
+            end
+            last -= 1
+        end
+        if last < first then
+            return nil
+        end
+        local core = text
+        local before, after = "", ""
+        if first > 1 or last < #text then
+            core = sub(text, first, last)
+            before, after = sub(text, 1, first - 1), sub(text, last + 1)
+            hit = strings[core]
+            if hit ~= nil then
+                return before .. hit .. after
+            end
+        end
+        if find(core, "%d") then
+            local numbers = {}
+            local key = gsub(core, "%d+%.?%d*", function(number)
+                numbers[#numbers + 1] = number
+                return "#"
+            end)
+            hit = strings[key]
+            if hit ~= nil then
+                local index = 0
+                return before .. gsub(hit, "#", function()
+                    index += 1
+                    return numbers[index]
+                end) .. after
+            end
+        end
+        if not find(core, "%l") and find(core, "%u") then
+            local upper = lang._upper
+            if not upper then
+                upper = {}
+                for key, value in pairs(strings) do
+                    upper[string.upper(key)] = value
+                end
+                lang._upper = upper
+            end
+            hit = upper[core]
+            if hit ~= nil then
+                return before .. Lang.Upper(hit) .. after
+            end
+        end
+        return nil
+    end
+
+    -- Lists and paths ("A, B", "Tab  ›  Group") are translated piece by piece.
+    local separators = { "  \226\128\186  ", "  \194\183  ", ", " }
+
+    local function pieces(lang, text)
+        for _, separator in ipairs(separators) do
+            if find(text, separator, 1, true) then
+                local changed = false
+                local out = {}
+                local from = 1
+                while true do
+                    local at, to = find(text, separator, from, true)
+                    local piece = sub(text, from, at and at - 1 or #text)
+                    local hit = plain(lang, piece)
+                    if hit ~= nil then
+                        changed = true
+                        piece = hit
+                    end
+                    out[#out + 1] = piece
+                    if not at then
+                        break
+                    end
+                    from = to + 1
+                end
+                if changed then
+                    return table.concat(out, separator)
+                end
+            end
+        end
+        return nil
+    end
+
+    -- The text in the active language, or nil when there is nothing to
+    -- change. Rich text keeps its tags; only the words between them go
+    -- through the dictionary.
+    function Lang.Translate(text)
+        local lang = Lang.Active
+        if not lang or text == "" then
+            return nil
+        end
+        local hit = plain(lang, text)
+        if hit ~= nil then
+            return hit
+        end
+        if find(text, "<", 1, true) and find(text, ">", 1, true) then
+            local changed = false
+            local out = gsub(">" .. text .. "<", ">([^<>]+)<", function(segment)
+                local piece = plain(lang, segment) or pieces(lang, segment)
+                if piece == nil then
+                    return nil
+                end
+                changed = true
+                return ">" .. piece .. "<"
+            end)
+            if changed then
+                return sub(out, 2, -2)
+            end
+            return nil
+        end
+        return pieces(lang, text)
+    end
+
+    -- Instances are held strongly, like theme bindings: a weak table would
+    -- drop live ones. Those left without a parent for two sweeps are gone.
+    function Lang.Sweep()
+        local orphans = Lang.Orphans
+        for object in pairs(Bound) do
+            if object.Parent == nil then
+                if orphans[object] then
+                    Bound[object] = nil
+                    orphans[object] = nil
+                    Lang.Count -= 1
+                else
+                    orphans[object] = true
+                end
+            else
+                orphans[object] = nil
+            end
+        end
+        Lang.SweepAt = math.max(3000, Lang.Count * 2)
+    end
+
+    -- Called for every text instance the library creates. `prop` is "Text",
+    -- or "PlaceholderText" for boxes the player types into.
+    function Lang.Bind(inst, prop)
+        local state = { Prop = prop, Source = inst[prop] }
+        state.Shown = state.Source
+        if Lang.Active and state.Source ~= "" then
+            local out = Lang.Translate(state.Source)
+            if out ~= nil and out ~= state.Source then
+                state.Shown = out
+                inst[prop] = out
+            end
+        end
+        Bound[inst] = state
+        Lang.Count += 1
+        inst:GetPropertyChangedSignal(prop):Connect(function()
+            local now = inst[prop]
+            -- Our own write, or the same text again.
+            if now == state.Shown then
+                return
+            end
+            state.Source = now
+            state.Shown = now
+            if Lang.Active and now ~= "" then
+                local out = Lang.Translate(now)
+                if out ~= nil and out ~= now then
+                    state.Shown = out
+                    inst[prop] = out
+                end
+            end
+            if Bound[inst] == nil then
+                Bound[inst] = state
+                Lang.Count += 1
+            end
+        end)
+        if Lang.Count >= Lang.SweepAt then
+            Lang.Sweep()
+        end
+    end
+
+    -- Repaints everything that is bound, after the language or its
+    -- dictionary changed.
+    function Lang.Repaint()
+        local active = Lang.Active
+        for inst, state in pairs(Bound) do
+            -- A text that changed a moment ago is picked up by its own
+            -- change signal instead.
+            if inst[state.Prop] == state.Shown then
+                local source = state.Source
+                local target = source
+                if active and source ~= "" then
+                    target = Lang.Translate(source) or source
+                end
+                if target ~= state.Shown then
+                    state.Shown = target
+                    inst[state.Prop] = target
+                end
+            end
+        end
+        Lang.Sweep()
+    end
+
+    function Lang.Fire(kind)
+        for _, listener in ipairs(table.clone(Lang.Listeners)) do
+            task.spawn(listener, Library.Language, kind)
+        end
+    end
+
+    function Lang.Listen(listener)
+        table.insert(Lang.Listeners, listener)
+        return function()
+            local at = table.find(Lang.Listeners, listener)
+            if at then
+                table.remove(Lang.Listeners, at)
+            end
+        end
+    end
+
+    -- "ru", "RU", "ru-ru" or the language's name.
+    function Lang.Find(code)
+        if type(code) ~= "string" then
+            return nil
+        end
+        local lowered = Lang.Lower(code)
+        local found = Library.Languages[lowered]
+        if found then
+            return found
+        end
+        for _, key in ipairs(Lang.Order) do
+            local lang = Library.Languages[key]
+            if Lang.Lower(lang.Name) == lowered then
+                return lang
+            end
+        end
+        return Library.Languages[string.match(lowered, "^%a+") or ""]
+    end
+
+    function Lang.Register(code, info)
+        code = string.lower(tostring(code))
+        info = type(info) == "table" and info or {}
+        local lang = Library.Languages[code]
+        if not lang then
+            lang = { Code = code, Name = string.upper(code), Flag = code, Strings = {} }
+            Library.Languages[code] = lang
+            table.insert(Lang.Order, code)
+        end
+        if info.Name ~= nil then
+            lang.Name = tostring(info.Name)
+        end
+        if info.Flag ~= nil then
+            lang.Flag = info.Flag
+        end
+        if type(info.Strings) == "table" then
+            for key, value in pairs(info.Strings) do
+                if type(key) == "string" and type(value) == "string" then
+                    lang.Strings[key] = value
+                end
+            end
+            lang._upper = nil
+        end
+        return lang
+    end
+
+    function Lang.Activate(lang)
+        Library.Language = lang.Code
+        Lang.Active = next(lang.Strings) ~= nil and lang or nil
+    end
+
+    -- The language of the player's Roblox client, as a code like "ru".
+    function Lang.Detect()
+        local ok, id = pcall(function()
+            local service = game:GetService("LocalizationService")
+            local locale = service.RobloxLocaleId
+            if type(locale) ~= "string" or locale == "" then
+                locale = service.SystemLocaleId
+            end
+            return locale
+        end)
+        local code = ok and type(id) == "string" and string.match(string.lower(id), "^%a+") or nil
+        return code ~= "" and code or nil
+    end
+
+    -- Picks the language a new window starts in: the one the player chose
+    -- last time, then the Language option, then the client's own language.
+    function Lang.Startup(window, opts)
+        window._languageButtonWanted = opts.LanguageButton
+        local want = nil
+        local ok, settings = pcall(function()
+            return window:_readConfigSettings()
+        end)
+        if ok and type(settings) == "table" and type(settings.Language) == "string" then
+            want = settings.Language
+        end
+        if want == nil and type(opts.Language) == "string" then
+            want = opts.Language
+        end
+        local detected = false
+        if want == nil and opts.AutoLanguage ~= false then
+            want = Lang.Detect()
+            detected = true
+        end
+        if want == nil then
+            return
+        end
+        -- A script that translates nothing stays in its own language, even
+        -- for a player whose client is in one the library knows.
+        if Lang.Find(want) and (Lang.Used or not detected) then
+            Library:SetLanguage(want)
+        else
+            -- Applied as soon as the script adds strings for it.
+            Lang.Wanted = want
+        end
+    end
+
+    local function changed(lang)
+        if Lang.Wanted and Lang.Find(Lang.Wanted) == lang then
+            Lang.Wanted = nil
+            if Library.Language ~= lang.Code then
+                Lang.Activate(lang)
+                Lang.Repaint()
+                Lang.Fire("Language")
+                return
+            end
+        end
+        if Library.Language == lang.Code then
+            Lang.Activate(lang)
+            Lang.Repaint()
+        end
+        Lang.Fire("Languages")
+    end
+
+    -- Library:AddLanguage("ru", { Name = "Русский", Flag = "ru", Strings = {
+    --     ["Auto Farm"] = "Автофарм",
+    --     ["# kills"] = "# убийств",   -- "#" stands for any number
+    -- } })
+    -- Keys are the texts exactly as the script passes them. Calling it again
+    -- for the same code adds to what is there. Flag: a country code, an
+    -- image (asset id or link) or a list of stripe colours.
+    function Library:AddLanguage(code, info)
+        Lang.Used = true
+        local lang = Lang.Register(code, info)
+        changed(lang)
+        return lang
+    end
+
+    -- Library:AddTranslations("ru", { ["Auto Farm"] = "Автофарм" })
+    function Library:AddTranslations(code, strings)
+        return Library:AddLanguage(code, { Strings = strings })
+    end
+
+    -- Switches the language of everything on screen, live. Returns false for
+    -- a language that was never added.
+    function Library:SetLanguage(code)
+        local lang = Lang.Find(code)
+        if not lang then
+            warn("[AirFlow] unknown language: " .. tostring(code))
+            return false
+        end
+        Lang.Wanted = nil
+        if Library.Language == lang.Code then
+            return true
+        end
+        Lang.Activate(lang)
+        Lang.Repaint()
+        Lang.Fire("Language")
+        return true
+    end
+
+    function Library:GetLanguage()
+        return Library.Language
+    end
+
+    -- The added languages in order, as { Code, Name, Flag }.
+    function Library:GetLanguages()
+        local list = {}
+        for _, code in ipairs(Lang.Order) do
+            local lang = Library.Languages[code]
+            table.insert(list, { Code = lang.Code, Name = lang.Name, Flag = lang.Flag })
+        end
+        return list
+    end
+
+    -- handler(code) runs after every switch. Returns a function that stops it.
+    function Library:OnLanguageChanged(handler)
+        return Lang.Listen(function(code, kind)
+            if kind == "Language" then
+                handler(code)
+            end
+        end)
+    end
+
+    -- The text in the current language, for strings the script builds
+    -- itself (notifications, status values). Extra arguments go through
+    -- string.format after translating: Library:T("Sold %d items", count).
+    function Library:T(text, ...)
+        text = tostring(text == nil and "" or text)
+        local out = Lang.Translate(text) or text
+        if select("#", ...) > 0 then
+            local ok, formatted = pcall(string.format, out, ...)
+            return ok and formatted or out
+        end
+        return out
+    end
+
+    Lang.Register("en", { Name = "English", Flag = "us" })
+    Lang.Register("ru", { Name = "Русский", Flag = "ru", Strings = {
+        -- Window, home
+        ["Home"] = "Главная", ["Search"] = "Поиск", ["Settings"] = "Настройки", ["Welcome back"] = "С возвращением",
+        ["Name"] = "Имя", ["Avatar"] = "Аватар", ["Players"] = "Игроки", ["Session"] = "Сессия", ["Game"] = "Игра",
+        ["Executor"] = "Экзекутор", ["Ping"] = "Пинг", ["Memory"] = "Память", ["Region"] = "Регион", ["Server age"] = "Возраст сервера",
+        ["Rejoin"] = "Перезайти", ["Hop"] = "Сменить", ["Lowest"] = "Пустой", ["Job ID"] = "Job ID", ["Links"] = "Ссылки",
+        ["Feature list"] = "Список функций", ["Features"] = "Функции", ["Search features"] = "Поиск функций", ["No features yet"] = "Функций пока нет",
+        ["# features across # tabs"] = "Функций: # на # вкладках", ["# features across # tab"] = "Функций: # на # вкладке",
+        ["# feature across # tab"] = "# функция на # вкладке", ["# features"] = "Функций: #", ["# feature"] = "# функция",
+        ["#/# players"] = "#/# игроков", ["Unknown game"] = "Неизвестная игра", ["Unknown"] = "Неизвестно", ["Version"] = "Версия",
+        ["Website"] = "Сайт", ["Community"] = "Сообщество", ["Overview"] = "Обзор", ["Stats"] = "Статистика", ["Activity"] = "Активность",
+        ["Your executor is supported and fully compatible."] = "Ваш экзекутор поддерживается и полностью совместим.",
+        ["Not on the supported list. Some features may not work."] = "Нет в списке поддерживаемых. Часть функций может не работать.",
+        ["Unsupported executor"] = "Экзекутор не поддерживается", ["Continue anyway"] = "Всё равно продолжить", ["Continue"] = "Продолжить",
+        ["Don't ask again on this executor"] = "Больше не спрашивать на этом экзекуторе", ["Don't ask again"] = "Больше не спрашивать",
+        ["Don't show again"] = "Больше не показывать", ["I understand"] = "Понятно", ["Exit"] = "Выйти", ["Disclaimer"] = "Предупреждение",
+        ["Hide with"] = "Скрыть:", ["Click to open"] = "Нажмите, чтобы открыть", ["Tap to open"] = "Нажмите, чтобы открыть",
+        ["Recent searches"] = "Недавние запросы", ["No results"] = "Ничего не найдено", ["No matches"] = "Совпадений нет",
+        ["Nothing here yet"] = "Здесь пока пусто", ["Nothing yet"] = "Пока пусто", ["Nothing selected"] = "Ничего не выбрано",
+        ["Loading"] = "Загрузка", ["Loading icons"] = "Загрузка иконок", ["Loading settings"] = "Загрузка настроек",
+        ["Preparing interface"] = "Подготовка интерфейса", ["Almost there"] = "Почти готово",
+        ["Rejoining"] = "Перезаход", ["Teleporting back into this server"] = "Возвращаемся на этот сервер", ["Rejoin failed"] = "Не удалось перезайти",
+        ["Server hop"] = "Смена сервера", ["Lowest server"] = "Самый пустой сервер", ["Searching"] = "Поиск",
+        ["Joining a server with #/# players"] = "Заходим на сервер, где #/# игроков",
+        ["Could not load the server list"] = "Не удалось загрузить список серверов", ["No other open server found"] = "Других открытых серверов нет",
+        ["Server hop failed"] = "Не удалось сменить сервер", ["Lowest server failed"] = "Не удалось найти пустой сервер",
+        ["Copied"] = "Скопировано", ["Clipboard unavailable"] = "Буфер обмена недоступен",
+        ["Your executor has no setclipboard"] = "В вашем экзекуторе нет setclipboard",
+        ["just now"] = "только что", ["#m ago"] = "# мин назад", ["#h ago"] = "# ч назад", ["#d ago"] = "# дн назад", ["#w ago"] = "# нед назад",
+        ["Expired"] = "Истёк", ["Free"] = "Бесплатно", ["User"] = "Пользователь",
+
+        -- Elements
+        ["Click again to confirm"] = "Нажмите ещё раз для подтверждения", ["Are you sure?"] = "Вы уверены?",
+        ["Confirm"] = "Подтвердить", ["Cancel"] = "Отмена", ["OK"] = "ОК", ["Back"] = "Назад", ["None"] = "Нет", ["All"] = "Все",
+        ["On"] = "Вкл", ["Off"] = "Выкл", ["Select"] = "Выбрать", ["Select all"] = "Выбрать все", ["Clear"] = "Очистить", ["Clear all"] = "Очистить все",
+        ["Search # options"] = "Поиск среди # вариантов", ["Options"] = "Варианты", ["No rows match"] = "Нет подходящих строк",
+        ["Add row"] = "Добавить строку", ["Remove"] = "Удалить", ["Edit"] = "Изменить", ["Nothing to order"] = "Нечего упорядочивать",
+        ["Nothing logged yet"] = "Записей пока нет", ["No image"] = "Нет изображения", ["Running"] = "Работает",
+        ["Left"] = "Слева", ["Right"] = "Справа", ["Top"] = "Сверху", ["Both"] = "Оба", ["Custom"] = "Своя", ["Default"] = "По умолчанию",
+        ["Hidden"] = "Скрыто", ["Hide"] = "Скрыть", ["Disable"] = "Отключить", ["Unavailable"] = "Недоступно", ["Broken"] = "Сломано",
+        ["Error"] = "Ошибка", ["Warning"] = "Внимание", ["Success"] = "Готово", ["Notification"] = "Уведомление", ["Notifications"] = "Уведомления",
+        ["Something went wrong, try again"] = "Что-то пошло не так, попробуйте ещё раз", ["Try again"] = "Повторить",
+        ["Try again in a moment"] = "Попробуйте чуть позже",
+
+        -- Config manager
+        ["Configs"] = "Конфиги", ["Config"] = "Конфиг", ["Config Name"] = "Имя конфига", ["Type config name here"] = "Введите имя конфига",
+        ["Create"] = "Создать", ["Save"] = "Сохранить", ["Load"] = "Загрузить", ["Delete"] = "Удалить", ["Rename"] = "Переименовать",
+        ["Refresh"] = "Обновить", ["Reset"] = "Сбросить", ["Import"] = "Импорт", ["Import code"] = "Импорт кода", ["Copy code"] = "Копировать код",
+        ["Set"] = "Задать", ["Keep"] = "Оставить", ["Update"] = "Обновить", ["Install"] = "Установить", ["Reinstall"] = "Переустановить",
+        ["Autoload"] = "Автозагрузка", ["Auto Load Config"] = "Автозагрузка конфига", ["Autoload mode"] = "Режим автозагрузки",
+        ["No autoload"] = "Без автозагрузки", ["Autoload set"] = "Автозагрузка задана", ["Autoload cleared"] = "Автозагрузка отключена",
+        ["Autoload failed"] = "Ошибка автозагрузки", ["Nothing is set to autoload"] = "Автозагрузка не задана",
+        ["Loads the selected config on launch"] = "Загружает выбранный конфиг при запуске",
+        ["Global"] = "Общая", ["Account"] = "Аккаунт", ["All accounts"] = "Все аккаунты", ["This account"] = "Этот аккаунт",
+        ["Minimize UI on Start"] = "Сворачивать интерфейс при запуске",
+        ["Config created"] = "Конфиг создан", ["Config saved"] = "Конфиг сохранён", ["Config loaded"] = "Конфиг загружен",
+        ["Config deleted"] = "Конфиг удалён", ["Config renamed"] = "Конфиг переименован", ["Config imported"] = "Конфиг импортирован",
+        ["Config installed"] = "Конфиг установлен", ["Config updated"] = "Конфиг обновлён", ["Config published"] = "Конфиг опубликован",
+        ["Create failed"] = "Не удалось создать", ["Save failed"] = "Не удалось сохранить", ["Load failed"] = "Не удалось загрузить",
+        ["Delete failed"] = "Не удалось удалить", ["Rename failed"] = "Не удалось переименовать", ["Import failed"] = "Не удалось импортировать",
+        ["Export failed"] = "Не удалось экспортировать", ["Clear failed"] = "Не удалось очистить", ["Install failed"] = "Не удалось установить",
+        ["Mode change failed"] = "Не удалось сменить режим", ["Reset incomplete"] = "Сброс выполнен не полностью",
+        ["No config selected"] = "Конфиг не выбран", ["Pick one from the list first"] = "Сначала выберите его в списке",
+        ["Pick one from the list or type a name"] = "Выберите в списке или введите имя", ["Invalid name"] = "Недопустимое имя",
+        ["Name taken"] = "Имя занято", ["Give your config a name"] = "Дайте конфигу имя", ["Name the config"] = "Назовите конфиг",
+        ["Type a name before creating it"] = "Введите имя перед созданием", ["Type the new name in the name box"] = "Введите новое имя в поле имени",
+        ["Delete config"] = "Удалить конфиг", ["Invalid config code"] = "Неверный код конфига", ["The config code is invalid"] = "Код конфига неверен",
+        ["Paste a config code first"] = "Сначала вставьте код конфига", ["Nothing to import"] = "Нечего импортировать",
+        ["Config code"] = "Код конфига", ["paste a config code"] = "вставьте код конфига", ["Different script"] = "Другой скрипт",
+        ["Reset settings"] = "Сбросить настройки", ["Settings reset"] = "Настройки сброшены",
+        ["Everything is back to its default"] = "Всё возвращено к значениям по умолчанию",
+        ["Put every setting back to its default and delete this script's folder? Saved configs, themes and autoload are removed for good."] = "Вернуть все настройки по умолчанию и удалить папку скрипта? Сохранённые конфиги, темы и автозагрузка будут удалены навсегда.",
+        ["Applied to current settings"] = "Применено к текущим настройкам", ["Applied to your current settings"] = "Применено к вашим текущим настройкам",
+        ["Current settings"] = "Текущие настройки", ["# saved"] = "Сохранено: #", ["no configs yet"] = "конфигов пока нет",
+
+        -- Theme manager
+        ["Theme"] = "Тема", ["Themes"] = "Темы", ["Preset"] = "Пресет", ["Menu"] = "Меню", ["Accent"] = "Акцент", ["Background"] = "Фон",
+        ["Text"] = "Текст", ["Muted text"] = "Приглушённый текст", ["Stroke"] = "Обводка", ["Color"] = "Цвет",
+        ["Set Default"] = "Сделать по умолчанию", ["Clear Default"] = "Сбросить по умолчанию", ["Default theme set"] = "Тема по умолчанию задана",
+        ["Default cleared"] = "Тема по умолчанию сброшена", ["Default theme: none"] = "Тема по умолчанию: нет",
+        ["Theme created"] = "Тема создана", ["Theme saved"] = "Тема сохранена", ["Theme loaded"] = "Тема загружена", ["Theme deleted"] = "Тема удалена",
+        ["Delete theme"] = "Удалить тему", ["No theme selected"] = "Тема не выбрана", ["Name the theme"] = "Назовите тему",
+        ["Pick a theme or a preset first"] = "Сначала выберите тему или пресет", ["theme name"] = "имя темы", ["no themes"] = "тем нет",
+        ["Weather"] = "Погода", ["Weather Mode"] = "Режим погоды", ["Snow"] = "Снег", ["Rain"] = "Дождь", ["Fireflies"] = "Светлячки",
+        ["Always Show"] = "Показывать всегда", ["Show on Hover"] = "Показывать при наведении", ["Backdrop"] = "Подложка", ["Dim"] = "Затемнение",
+        ["Transparent"] = "Прозрачное окно", ["Transparency"] = "Прозрачность", ["Background Opacity"] = "Непрозрачность фона",
+        ["Background failed"] = "Не удалось загрузить фон", ["image id or url"] = "id изображения или ссылка",
+        ["Paste an image id or link first"] = "Сначала вставьте id изображения или ссылку",
+        ["Drag Style"] = "Стиль перетаскивания", ["Outline"] = "Контур", ["Ghost"] = "Призрак", ["Dynamic Island"] = "Dynamic Island",
+        ["Island"] = "Островок", ["Adaptive Size"] = "Адаптивный размер", ["UI Scale"] = "Масштаб интерфейса", ["Density"] = "Плотность",
+        ["Compact"] = "Компактная", ["Comfortable"] = "Просторная", ["Corner Radius"] = "Скругление углов", ["Sidebar"] = "Боковая панель",
+        ["Mobile"] = "Телефон", ["Screen"] = "Экран", ["Size"] = "Размер", ["Display"] = "Отображение", ["Sound"] = "Звук",
+
+        -- Cloud configs
+        ["Cloud"] = "Облако", ["Browse"] = "Обзор", ["Installed"] = "Установленные", ["Favorites"] = "Избранное", ["Mine"] = "Мои",
+        ["Publish"] = "Опубликовать", ["Publish a config"] = "Опубликовать конфиг", ["Popular"] = "Популярные", ["Newest"] = "Новые",
+        ["Top rated"] = "Лучшие", ["Most installed"] = "Чаще ставят", ["Search configs"] = "Поиск конфигов", ["Clear filters"] = "Сбросить фильтры",
+        ["Load more"] = "Показать ещё", ["Like"] = "Нравится", ["Liked"] = "Нравится", ["Favorite"] = "В избранное", ["Favorited"] = "В избранном",
+        ["Added to favorites"] = "Добавлено в избранное", ["Removed from favorites"] = "Убрано из избранного", ["Report"] = "Пожаловаться",
+        ["Report config"] = "Пожаловаться на конфиг", ["Report sent"] = "Жалоба отправлена", ["Report failed"] = "Не удалось отправить жалобу",
+        ["Thanks for letting us know"] = "Спасибо, что сообщили", ["Spam"] = "Спам", ["Inappropriate"] = "Неприемлемое содержание",
+        ["Install config"] = "Установить конфиг", ["Apply only"] = "Только применить", ["Edit config"] = "Изменить конфиг",
+        ["Update config"] = "Обновить конфиг", ["Save changes"] = "Сохранить изменения", ["Description"] = "Описание", ["Tags"] = "Теги",
+        ["No description"] = "Без описания", ["Settings to share"] = "Какие настройки публиковать", ["Keep published settings"] = "Оставить опубликованные настройки",
+        ["Publishing"] = "Публикация", ["Saving"] = "Сохранение", ["Too many tags"] = "Слишком много тегов", ["Pick up to #"] = "Не больше #",
+        ["Could not load configs"] = "Не удалось загрузить конфиги", ["Could not load config"] = "Не удалось загрузить конфиг",
+        ["No configs match your search"] = "По вашему запросу конфигов нет", ["No configs shared yet. Be the first!"] = "Конфигов пока нет. Станьте первым!",
+        ["Nothing installed from the cloud yet"] = "Из облака пока ничего не установлено", ["You haven't published anything yet"] = "Вы пока ничего не публиковали",
+        ["There are no settings to share"] = "Нет настроек для публикации", ["Publishing isn't available"] = "Публикация недоступна",
+        ["Editing isn't available"] = "Редактирование недоступно", ["What is it for?"] = "Для чего он?", ["Installs"] = "Установки",
+        ["# setting"] = "# настройка", ["# settings"] = "Настроек: #", ["and # more"] = "и ещё #",
+    } })
+end
+
 local function create(className, props, children)
     local inst = Instance.new(className)
     for key, value in pairs(props) do
@@ -707,6 +1333,12 @@ local function create(className, props, children)
         end
     end
     bindColors(inst, props)
+    -- Texts are shown in the current language and follow it when it changes.
+    if className == "TextLabel" or className == "TextButton" then
+        Library._lang.Bind(inst, "Text")
+    elseif className == "TextBox" then
+        Library._lang.Bind(inst, "PlaceholderText")
+    end
     if children then
         for _, child in ipairs(children) do
             child.Parent = inst
@@ -2278,11 +2910,20 @@ function Tab:Dropdown(opts)
         return logical > 0 and list.AbsoluteCanvasSize.Y / logical or 1
     end
 
+    -- Search keys hold the option as it is shown and as the script named
+    -- it, so either finds it. They are kept per language.
     local function lowerOf(option)
-        local key = lowerKeys[option]
+        local cache = lowerKeys[Library.Language]
+        if not cache then
+            cache = {}
+            lowerKeys[Library.Language] = cache
+        end
+        local key = cache[option]
         if key == nil then
-            key = string.lower(tostring(option))
-            lowerKeys[option] = key
+            local text = tostring(option)
+            local shownText = Library._lang.Translate(text)
+            key = Library._lang.Lower(shownText and (shownText .. "\n" .. text) or text)
+            cache[option] = key
         end
         return key
     end
@@ -2297,7 +2938,10 @@ function Tab:Dropdown(opts)
     end
     local function optionText(option)
         local text = tostring(option)
-        local at = filter ~= "" and string.find(string.lower(text), filter, 1, true)
+        if filter ~= "" then
+            text = Library._lang.Translate(text) or text
+        end
+        local at = filter ~= "" and string.find(Library._lang.Lower(text), filter, 1, true)
         if not at then
             return escapeRich(text)
         end
@@ -2894,7 +3538,7 @@ function Tab:Dropdown(opts)
         end
     end)
     searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-        filter = string.lower(searchBox.Text)
+        filter = Library._lang.Lower(searchBox.Text)
         list.CanvasPosition = Vector2.zero
         applyFilter()
         if self_.Open then
@@ -4501,8 +5145,35 @@ function Library._registry()
     return env.__AirFlowWindows
 end
 
+-- Switches the logo preset ("Robscript", "GirlMaker"); call it before
+-- CreateWindow, or pass Logo = "GirlMaker" to CreateWindow.
+function Library:SetLogo(name)
+    local assets = Library.Assets
+    local preset = assets.Logos and assets.Logos[name]
+    if not preset and assets.Logos then
+        for key, value in pairs(assets.Logos) do
+            if key:lower() == tostring(name):lower() then
+                preset = value
+                break
+            end
+        end
+    end
+    if not preset then
+        warn("[AirFlow] unknown logo: " .. tostring(name))
+        return false
+    end
+    assets.Logo = preset.Logo
+    assets.LogoSmall = preset.LogoSmall
+    assets.LogoTint = false
+    return true
+end
+
 function Library.Window(_, opts)
     opts = normalize(opts, { Name = "Title", LoadingSubtitle = "Subtitle", ToggleUIKeybind = "Keybind" })
+
+    if opts.Logo ~= nil then
+        Library:SetLogo(opts.Logo)
+    end
 
     if type(opts.Keybind) == "string" then
         opts.Keybind = Enum.KeyCode[opts.Keybind]
@@ -4532,6 +5203,13 @@ function Library.Window(_, opts)
     }, Window)
     local saving = type(opts.ConfigurationSaving) == "table" and opts.ConfigurationSaving or {}
     self.ConfigFolder = saving.FolderName or "AirflowUI"
+    -- Before anything is drawn, so every text is laid out in its language.
+    do
+        local ok, err = pcall(Library._lang.Startup, self, opts)
+        if not ok then
+            warn("[AirFlow] language setup failed: " .. tostring(err))
+        end
+    end
     -- Re-executing the script unloads the copy it left behind first, so the
     -- old toggles stop before the new autoload starts them again.
     self._registryKey = "AirFlow:" .. tostring(self.ConfigFolder) .. ":" .. tostring(opts.Title or "Airflow")
@@ -4854,6 +5532,12 @@ function Library.Window(_, opts)
 
     if opts.Search ~= false then
         self:_buildSearch(content)
+    end
+    do
+        local ok, err = pcall(self._buildLanguageButton, self, content)
+        if not ok then
+            warn("[AirFlow] language button failed: " .. tostring(err))
+        end
     end
 
     local notifyHolder = create("Frame", {
@@ -12888,7 +13572,7 @@ function Tab:Table(opts)
         end
 
         pickerFit = function()
-            local query = string.lower(trim(pickerSearch.Text))
+            local query = Library._lang.Lower(trim(pickerSearch.Text))
             if query == "" then
                 pickerShown = options
             else
@@ -12896,7 +13580,8 @@ function Tab:Table(opts)
                 for _, option in ipairs(options) do
                     local key = keys[option]
                     if key == nil then
-                        key = string.lower(tostring(option))
+                        local text = tostring(option)
+                        key = Library._lang.Lower((Library._lang.Translate(text) or "") .. "\n" .. text)
                         keys[option] = key
                     end
                     if string.find(key, query, 1, true) then
@@ -14175,14 +14860,23 @@ Window._searchIcons = {
 
 function Window:_searchResults(query)
     local results = {}
+    local Lang = Library._lang
+    query = Lang.Lower(query)
     local function consider(name, entry)
         if type(name) ~= "string" or name == "" then
             return
         end
-        local at = string.find(string.lower(name), query, 1, true)
+        -- Search what the player sees first, then the script's own name.
+        local shownName = Lang.Translate(name) or name
+        local at = string.find(Lang.Lower(shownName), query, 1, true)
+        if not at and shownName ~= name then
+            at = string.find(Lang.Lower(name), query, 1, true)
+            shownName = name
+        end
         if not at then
             return
         end
+        name = shownName
         entry.Name = name
         entry.At = at
         -- Name starts first, then word starts, then anywhere inside a word.
@@ -14415,8 +15109,263 @@ function Window:_resetSearch()
 end
 
 -- Page titles stop short of the search box and close button.
+-- A small flag for a language: drawn from stripes when the flag is that
+-- simple, otherwise an image (the Flag option, or flagcdn.com by country
+-- code). Until an image arrives, and when it can't be loaded, the language
+-- code is shown instead.
+function Window:_languageFlag(parent, lang, width, height)
+    local Lang = Library._lang
+    local flag = create("CanvasGroup", {
+        Name = "Flag",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(width, height),
+        BackgroundColor3 = Theme.Surface3,
+        BorderSizePixel = 0,
+        Parent = parent,
+    })
+    Library._fixedCorner(flag, UDim.new(0, 3))
+    local source = lang.Flag
+    if source == nil or source == "" then
+        source = lang.Code
+    end
+    local spec = type(source) == "table" and source or Lang.Flags[string.lower(tostring(source))]
+    if spec then
+        -- Colours are set after creation so the theme never repaints them.
+        local count = math.max(#spec, 1)
+        for index, hex in ipairs(spec) do
+            local stripe = create("Frame", {
+                Position = spec.Vertical and UDim2.fromScale((index - 1) / count, 0) or UDim2.fromScale(0, (index - 1) / count),
+                Size = spec.Vertical and UDim2.new(1 / count, 1, 1, 0) or UDim2.new(1, 0, 1 / count, 1),
+                BorderSizePixel = 0,
+                Parent = flag,
+            })
+            stripe.BackgroundColor3 = toColor(hex) or Color3.new(1, 1, 1)
+        end
+        if spec.Dot then
+            local dot = create("Frame", {
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.5, 0.5),
+                Size = UDim2.fromOffset(math.floor(height * 0.6), math.floor(height * 0.6)),
+                BorderSizePixel = 0,
+                Parent = flag,
+            })
+            dot.BackgroundColor3 = toColor(spec.Dot) or Color3.new(1, 0, 0)
+            Library._fixedCorner(dot, UDim.new(1, 0))
+        end
+        return flag
+    end
+    local code = label({
+        Size = UDim2.fromScale(1, 1),
+        Text = string.upper(string.sub(lang.Code, 1, 2)),
+        TextColor3 = Theme.Text,
+        TextSize = math.max(8, height - 6),
+        FontFace = Fonts.Bold,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextTruncate = Enum.TextTruncate.None,
+        Parent = flag,
+    })
+    source = tostring(source)
+    if string.match(source, "^%a%a%-?%a?%a?%a?$") then
+        source = "https://flagcdn.com/w80/" .. string.lower(source) .. ".png"
+    end
+    local function show(asset)
+        if not flag.Parent then
+            return
+        end
+        create("ImageLabel", {
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            Image = asset,
+            ScaleType = Enum.ScaleType.Crop,
+            Parent = flag,
+        })
+        code.Visible = false
+    end
+    if Lang.FlagCache[source] then
+        show(Lang.FlagCache[source])
+    elseif Lang.FlagCache[source] == nil then
+        -- Downloading yields, so the flag fills in a moment later.
+        task.spawn(function()
+            local ok, asset = pcall(function()
+                return self:_resolveBackground(source)
+            end)
+            Lang.FlagCache[source] = ok and asset or false
+            if ok and asset then
+                show(asset)
+            end
+        end)
+    end
+    return flag
+end
+
+-- The language button in the header, left of minimize: the flag of the
+-- current language. With two languages a click swaps them; with more it
+-- opens a short list. It only shows once the script has added a language.
+function Window:_buildLanguageButton(content)
+    local Lang = Library._lang
+    local button = create("TextButton", {
+        Name = "Language",
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, -50, 0, 14),
+        Size = UDim2.fromOffset(34, 34),
+        BackgroundTransparency = 1,
+        Text = "",
+        AutoButtonColor = false,
+        Visible = false,
+        ZIndex = 5,
+        Parent = content,
+    })
+    button:SetAttribute("NoDrag", true)
+    self.LanguageButton = button
+    self._langWidth = 0
+    local flag, menu = nil, nil
+
+    local function closeMenu()
+        if menu then
+            menu:Destroy()
+            menu = nil
+        end
+    end
+
+    local function pick(code)
+        closeMenu()
+        if Library:SetLanguage(code) then
+            -- Remembered next to the configs, so the next run starts in it.
+            pcall(function()
+                self:_writeConfigSettings({ Language = Library.Language })
+            end)
+        end
+    end
+
+    local function openMenu()
+        local list = Lang.Order
+        menu = create("Frame", {
+            Name = "Languages",
+            AnchorPoint = Vector2.new(1, 0),
+            Position = UDim2.new(1, -14, 0, 52),
+            Size = UDim2.fromOffset(172, #list * 30 + 8),
+            BackgroundColor3 = Theme.Surface2,
+            BorderSizePixel = 0,
+            ZIndex = 60,
+            Parent = content,
+        })
+        menu:SetAttribute("NoDrag", true)
+        corner(menu, UDim.new(0, 8))
+        stroke(menu, Theme.Stroke, 0, 1)
+        padding(menu, 4, 4, 4, 4)
+        create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Parent = menu })
+        for index, code in ipairs(list) do
+            local lang = Library.Languages[code]
+            local current = code == Library.Language
+            local row = create("TextButton", {
+                Size = UDim2.new(1, 0, 0, 30),
+                BackgroundColor3 = Theme.Surface3,
+                BackgroundTransparency = current and 0.2 or 1,
+                Text = "",
+                AutoButtonColor = false,
+                LayoutOrder = index,
+                Parent = menu,
+            })
+            corner(row, UDim.new(0, 6))
+            local slot = create("Frame", {
+                Position = UDim2.fromOffset(8, 0),
+                Size = UDim2.new(0, 22, 1, 0),
+                BackgroundTransparency = 1,
+                Parent = row,
+            })
+            self:_languageFlag(slot, lang, 20, 14)
+            label({
+                Position = UDim2.fromOffset(38, 0),
+                Size = UDim2.new(1, -46, 1, 0),
+                Text = lang.Name,
+                TextColor3 = current and Theme.Text or Theme.Muted,
+                TextSize = 13,
+                Parent = row,
+            })
+            if not current then
+                row.MouseEnter:Connect(function()
+                    tween(row, { BackgroundTransparency = 0.5 }, 0.12)
+                end)
+                row.MouseLeave:Connect(function()
+                    tween(row, { BackgroundTransparency = 1 }, 0.15)
+                end)
+            end
+            row.MouseButton1Click:Connect(function()
+                pick(code)
+            end)
+        end
+    end
+
+    local function refresh()
+        local list = Lang.Order
+        local wanted = self._languageButtonWanted
+        local visible = wanted ~= false and #list >= 2 and (Lang.Used or wanted == true)
+        button.Visible = visible
+        local width = visible and 34 or 0
+        if self._langWidth ~= width then
+            self._langWidth = width
+            if self._searchHolder then
+                self._searchHolder.Position = UDim2.new(1, -56 - width, 0, 14)
+            end
+            for _, tab in ipairs(self.Tabs) do
+                if tab._title then
+                    self:_fitTitle(tab)
+                end
+            end
+        end
+        closeMenu()
+        if flag then
+            flag:Destroy()
+            flag = nil
+        end
+        local lang = Library.Languages[Library.Language]
+        if visible and lang then
+            flag = self:_languageFlag(button, lang, 22, 16)
+            flag.GroupTransparency = 0.12
+        end
+    end
+
+    button.MouseEnter:Connect(function()
+        if flag then
+            tween(flag, { GroupTransparency = 0, Size = UDim2.fromOffset(24, 17) }, 0.15)
+        end
+    end)
+    button.MouseLeave:Connect(function()
+        if flag then
+            tween(flag, { GroupTransparency = 0.12, Size = UDim2.fromOffset(22, 16) }, 0.2)
+        end
+    end)
+    button.MouseButton1Click:Connect(function()
+        local list = Lang.Order
+        if menu then
+            closeMenu()
+        elseif #list > 2 then
+            openMenu()
+        else
+            for _, code in ipairs(list) do
+                if code ~= Library.Language then
+                    pick(code)
+                    break
+                end
+            end
+        end
+    end)
+    self:_listen("Began", function(input)
+        if menu and isPress(input) then
+            local point = pointerPosition()
+            if not pointInside(point, menu) and not pointInside(point, button) then
+                closeMenu()
+            end
+        end
+    end)
+    -- Runs on a switch and whenever the script adds a language.
+    table.insert(self._connections, { Disconnect = Lang.Listen(refresh) })
+    refresh()
+end
+
 function Window:_fitTitle(tab)
-    local right = self.SearchBox and (self._searchWidth or SEARCH_WIDTH) + 72 or 56
+    local right = (self.SearchBox and (self._searchWidth or SEARCH_WIDTH) + 72 or 56) + (self._langWidth or 0)
     local reserve = tab._titleX + right
     tab._title.Size = UDim2.new(1, -reserve, 0, 24)
     if tab._desc then
@@ -14437,6 +15386,7 @@ function Window:_buildSearch(content)
         Parent = content,
     })
     holder:SetAttribute("NoDrag", true)
+    self._searchHolder = holder
     local field = create("Frame", {
         AnchorPoint = Vector2.new(0, 0.5),
         Position = UDim2.fromScale(0, 0.5),
@@ -16278,13 +17228,13 @@ function Window:ShowFeatures()
                 end
                 safeCall(item.Callback)
             end)
-            table.insert(section.Rows, { Frame = row, Key = string.lower(item.Name .. " " .. (sub or "")) })
+            table.insert(section.Rows, { Frame = row, Key = Library._lang.Lower((Library._lang.Translate(item.Name) or "") .. " " .. item.Name .. " " .. (sub or "")) })
         end
         table.insert(sections, section)
     end
 
     searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-        local query = string.lower(searchBox.Text)
+        local query = Library._lang.Lower(searchBox.Text)
         local any = false
         for _, section in ipairs(sections) do
             local shown = 0
@@ -22051,6 +23001,33 @@ Library:LoadFont({ Name = "ValleySans" }) -- downloaded once and used everywhere
 -- Library:SetDefaultTheme("Nebula") -- any preset name or a colour table; a theme the player picks wins
 
 --------------------------------------------------------------------------------
+-- Languages
+--------------------------------------------------------------------------------
+
+-- Write the script in one language and add a dictionary for each other one:
+-- the key is the text exactly as it is passed to the library. Once a
+-- language is added, a flag button appears in the header and switches
+-- everything live, without reloading the script. The library's own texts
+-- (Home, configs, themes) already come in English and Russian.
+Library:AddLanguage("ru", {
+    Name = "Русский",
+    Flag = "ru", -- a country code, an image id / link, or stripe colours
+    Strings = {
+        ["Main"] = "Основное", ["Status"] = "Статус", ["Elements"] = "Элементы", ["Popups"] = "Окна",
+        ["General"] = "Общее", ["Advanced"] = "Дополнительно", ["Queue"] = "Очередь",
+        ["Automation"] = "Автоматизация", ["Targeting"] = "Цели", ["Controls"] = "Управление",
+        ["Profile"] = "Профиль", ["Priority"] = "Приоритет", ["Progress"] = "Прогресс", ["Health"] = "Здоровье", ["Jobs"] = "Задачи",
+        ["Rare Items"] = "Редкие предметы", ["Event Items"] = "Ивентовые предметы", ["Common Items"] = "Обычные предметы",
+        ["Dialogs"] = "Диалоги",
+        -- "#" stands for any number: "3 kills" is shown as "Убийств: 3".
+        ["# kills"] = "Убийств: #",
+    },
+})
+-- Library:SetLanguage("ru")                        -- switch from code
+-- Library:OnLanguageChanged(function(code) end)    -- react to a switch
+-- Window:Notify({ Title = Library:T("Sold %d items", 3) })  -- translate text you build yourself
+
+--------------------------------------------------------------------------------
 -- Window
 --------------------------------------------------------------------------------
 
@@ -22061,6 +23038,9 @@ local Window = Library:CreateWindow({
     ConfigurationSaving = { Enabled = true, FolderName = "Example" },
     ToggleButton = { Platform = "Mobile", Icon = "layout-grid" }, -- "Both" also shows it on PC
     Backdrop = { Weather = "None", Tint = 0.45 }, -- "Snow", "Rain", "Hell Fire", "Sakura", "Fireflies", "Matrix" or "None"
+    -- Language = "ru",       -- starting language; the player's own choice and client language win
+    -- AutoLanguage = false,  -- don't start in the language of the player's Roblox client
+    -- LanguageButton = false, -- hide the flag button in the header
     -- UIScale = 1,           -- 0.6 to 1.5, on top of the automatic fit
     -- Density = "Default",   -- "Compact", "Default" or "Comfortable"
     -- SidebarWidth = 188,    -- starting sidebar width; players can drag the divider
